@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { useMutation } from "convex/react";
 import { SignInButton, UserButton } from "@clerk/clerk-react";
@@ -64,6 +64,12 @@ function Nav() {
           GitHub
         </a>
         <Authenticated>
+          <Link
+            to="/dashboard"
+            className="text-sm text-zinc-400 transition-colors hover:text-zinc-100"
+          >
+            My units
+          </Link>
           <UserButton />
         </Authenticated>
         <Unauthenticated>

@@ -6,8 +6,6 @@ import { currentUser, ensureUser, requireUser } from "./lib/auth";
 import { resolveStats } from "./lib/engine";
 import { CONSUMABLE_SLOTS } from "./lib/catalog";
 
-const MAX_ROSTER_SIZE = 24;
-
 export const list = query({
   args: {},
   handler: async (ctx) => {
@@ -35,8 +33,22 @@ export const save = mutation({
 
     const catalog = await toCatalog(ctx);
     resolveStats(args.loadout, catalog); // throws on unknown items
+    for (const [slot, slug] of [
+      ["weapon", args.loadout.weapon],
+      ["helmet", args.loadout.helmet],
+      ["chest", args.loadout.chest],
+      ["boots", args.loadout.boots],
+      ["active", args.loadout.active],
+    ] as const) {
+      const item = catalog.get(slug);
+      if (!item || item.slot !== slot) throw new Error(`Invalid ${slot}: ${slug}`);
+    }
     if (args.loadout.consumables.length !== CONSUMABLE_SLOTS) {
       throw new Error(`Pick exactly ${CONSUMABLE_SLOTS} consumables`);
+    }
+    for (const slug of args.loadout.consumables) {
+      const item = catalog.get(slug);
+      if (!item || item.slot !== "consumable") throw new Error(`Invalid consumable: ${slug}`);
     }
 
     const unit = {
@@ -52,13 +64,6 @@ export const save = mutation({
       await ctx.db.replace(args.id, unit);
       return args.id;
     }
-    const count = (
-      await ctx.db
-        .query("rosterUnits")
-        .withIndex("by_user", (q) => q.eq("userId", user._id))
-        .collect()
-    ).length;
-    if (count >= MAX_ROSTER_SIZE) throw new Error("Roster is full");
     return await ctx.db.insert("rosterUnits", unit);
   },
 });

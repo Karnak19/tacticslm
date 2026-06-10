@@ -2,7 +2,6 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
-import { loadoutValidator } from "./schema";
 import { CONSUMABLE_SLOTS, GRID_SIZE, TURN_CAP } from "./lib/catalog";
 import { computeInitiative, generateWalls, resolveStats, spawnRows } from "./lib/engine";
 import { toCatalog, toEngineUnit } from "./lib/db";
@@ -80,18 +79,12 @@ export const join = mutation({
   },
 });
 
-// Replace the player's squad (3 units). Validates loadouts against the catalog.
+// Pick the squad: 3 distinct units from the player's roster. The roster is the
+// single source of unit definitions; this copies them into the room.
 export const setSquad = mutation({
   args: {
     roomId: v.id("rooms"),
-    squad: v.array(
-      v.object({
-        name: v.string(),
-        personality: v.string(),
-        model: v.string(),
-        loadout: loadoutValidator,
-      }),
-    ),
+    rosterUnitIds: v.array(v.id("rosterUnits")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -99,34 +92,28 @@ export const setSquad = mutation({
     if (!room || room.status !== "lobby") throw new Error("Room is not in lobby");
     const user = await requireUser(ctx);
     const player = await playerForUser(ctx, args.roomId, user._id);
-    if (args.squad.length !== UNITS_PER_TEAM) {
-      throw new Error(`Squad must have exactly ${UNITS_PER_TEAM} units`);
+    if (new Set(args.rosterUnitIds).size !== UNITS_PER_TEAM) {
+      throw new Error(`Pick exactly ${UNITS_PER_TEAM} different units`);
     }
 
     const catalog = await toCatalog(ctx);
-    for (const unit of args.squad) {
-      const { loadout } = unit;
-      for (const [slot, slug] of [
-        ["weapon", loadout.weapon],
-        ["helmet", loadout.helmet],
-        ["chest", loadout.chest],
-        ["boots", loadout.boots],
-        ["active", loadout.active],
-      ] as const) {
-        const item = catalog.get(slug);
-        if (!item || item.slot !== slot) throw new Error(`Invalid ${slot}: ${slug}`);
+    const squad = [];
+    for (const id of args.rosterUnitIds) {
+      const rosterUnit = await ctx.db.get(id);
+      if (!rosterUnit || rosterUnit.userId !== user._id) {
+        throw new Error("Not your unit");
       }
+      const { loadout } = rosterUnit;
       if (loadout.consumables.length !== CONSUMABLE_SLOTS) {
-        throw new Error(`Pick exactly ${CONSUMABLE_SLOTS} consumables`);
+        throw new Error(`${rosterUnit.name}: pick exactly ${CONSUMABLE_SLOTS} consumables`);
       }
-      for (const slug of loadout.consumables) {
-        const item = catalog.get(slug);
-        if (!item || item.slot !== "consumable") {
-          throw new Error(`Invalid consumable: ${slug}`);
-        }
-      }
-      // resolveStats throws on unknown items; also a sanity check
-      resolveStats(loadout, catalog);
+      resolveStats(loadout, catalog); // throws on unknown/invalid items
+      squad.push({
+        name: rosterUnit.name,
+        personality: rosterUnit.personality,
+        model: rosterUnit.model,
+        loadout,
+      });
     }
 
     const existing = await ctx.db
@@ -134,7 +121,7 @@ export const setSquad = mutation({
       .withIndex("by_player", (q) => q.eq("playerId", player._id))
       .collect();
     for (const u of existing) await ctx.db.delete(u._id);
-    for (const unit of args.squad) {
+    for (const unit of squad) {
       await ctx.db.insert("units", {
         roomId: args.roomId,
         playerId: player._id,
