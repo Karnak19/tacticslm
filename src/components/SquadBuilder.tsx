@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
+import { itemIcon, unitSprite } from "../lib/sprites";
 
 type Loadout = {
   weapon: string;
@@ -205,11 +206,19 @@ export default function SquadBuilder({ room, lobby }: { room: Doc<"rooms">; lobb
                 ))}
               </select>
             )}
-            <input
-              value={unit.name}
-              onChange={(e) => updateUnit(i, { name: e.target.value })}
-              className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-lg font-semibold outline-none focus:border-zinc-600"
-            />
+            <div className="flex items-center gap-2">
+              <img
+                src={unitSprite(unit.loadout.weapon)}
+                alt=""
+                className="h-10 w-10"
+                style={{ imageRendering: "pixelated" }}
+              />
+              <input
+                value={unit.name}
+                onChange={(e) => updateUnit(i, { name: e.target.value })}
+                className="min-w-0 flex-1 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-lg font-semibold outline-none focus:border-zinc-600"
+              />
+            </div>
             <label className="flex flex-col gap-1 text-xs text-zinc-400">
               Personality (this is the soul of your unit)
               <textarea
@@ -232,17 +241,24 @@ export default function SquadBuilder({ room, lobby }: { room: Doc<"rooms">; lobb
             {(["weapon", "helmet", "chest", "boots", "active"] as const).map((slot) => (
               <label key={slot} className="flex flex-col gap-1 text-xs text-zinc-400">
                 {slot[0].toUpperCase() + slot.slice(1)}
-                <select
-                  value={unit.loadout[slot]}
-                  onChange={(e) => updateLoadout(i, { [slot]: e.target.value })}
-                  className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-zinc-600"
-                >
-                  {bySlot(slot).map((item) => (
-                    <option key={item.slug} value={item.slug}>
-                      {item.name} — {item.description}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center gap-2">
+                  <img
+                    src={itemIcon(unit.loadout[slot])}
+                    alt=""
+                    className="h-7 w-7 shrink-0 opacity-80"
+                  />
+                  <select
+                    value={unit.loadout[slot]}
+                    onChange={(e) => updateLoadout(i, { [slot]: e.target.value })}
+                    className="min-w-0 flex-1 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-zinc-600"
+                  >
+                    {bySlot(slot).map((item) => (
+                      <option key={item.slug} value={item.slug}>
+                        {item.name} — {item.description}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </label>
             ))}
 
@@ -262,6 +278,7 @@ export default function SquadBuilder({ room, lobby }: { room: Doc<"rooms">; lobb
                         updateLoadout(i, { consumables: next });
                       }}
                     />
+                    <img src={itemIcon(item.slug)} alt="" className="h-5 w-5 opacity-80" />
                     {item.name}
                   </label>
                 );

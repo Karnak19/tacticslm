@@ -20,3 +20,10 @@ Built with **React**, **Tailwind CSS**, and **Convex**.
 
 - **Frontend:** React 19 (Vite SPA) + Tailwind CSS + Framer Motion (for smooth grid animations)
 - **Backend & State Engine:** Convex (Deterministic reactive database, real-time sync, and ACID-compliant game loop mutations)
+
+---
+
+## 🎨 Asset Credits
+
+- Sprites & tiles: [Tiny Dungeon](https://kenney.nl/assets/tiny-dungeon) by [Kenney](https://kenney.nl) (CC0)
+- Item icons: [game-icons.net](https://game-icons.net) by Lorc, Delapouite, Carl Olsen, Willdabeast, DarkZaitzev, Lucas & contributors ([CC BY 3.0](https://creativecommons.org/licenses/by/3.0/))

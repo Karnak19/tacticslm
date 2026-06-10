@@ -5,6 +5,7 @@ import { useAction, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { getApiKey } from "../lib/session";
+import { floorTile, unitSprite, WALL_TILE } from "../lib/sprites";
 
 export default function MatchView({ room }: { room: Doc<"rooms"> }) {
   const data = useQuery(api.matches.byRoom, { roomId: room._id });
@@ -103,17 +104,15 @@ function Board({
           return (
             <div
               key={idx}
-              className={
-                isWall
-                  ? "bg-zinc-700"
-                  : isSmoke
-                    ? "bg-zinc-500/40"
-                    : (x + y) % 2 === 0
-                      ? "bg-zinc-900"
-                      : "bg-zinc-900/50"
-              }
-              style={{ boxShadow: "inset 0 0 0 0.5px rgb(39 39 42 / 0.6)" }}
-            />
+              className="relative"
+              style={{
+                backgroundImage: `url(${isWall ? WALL_TILE : floorTile(x, y)})`,
+                backgroundSize: "cover",
+                imageRendering: "pixelated",
+              }}
+            >
+              {isSmoke && <div className="absolute inset-0 bg-zinc-300/50" />}
+            </div>
           );
         })}
       </div>
@@ -132,13 +131,18 @@ function Board({
             transition={{ type: "spring", stiffness: 200, damping: 25 }}
           >
             <div
-              className={`relative flex h-4/5 w-4/5 items-center justify-center rounded-full text-[0.6rem] font-bold text-white ${
-                u.team === "a" ? "bg-sky-600" : "bg-rose-600"
+              className={`relative flex h-full w-full items-center justify-center rounded ${
+                u.team === "a" ? "bg-sky-500/25" : "bg-rose-500/25"
               } ${isCurrent ? "ring-2 ring-amber-400" : ""}`}
               title={`${u.name} — ${u.hp} HP`}
             >
-              {u.name.slice(0, 2).toUpperCase()}
-              <span className="absolute -bottom-1 left-1/2 h-1 w-4/5 -translate-x-1/2 overflow-hidden rounded bg-zinc-950/80">
+              <img
+                src={unitSprite(u.loadout.weapon)}
+                alt={u.name}
+                className={`h-5/6 w-5/6 ${u.team === "b" ? "-scale-x-100" : ""}`}
+                style={{ imageRendering: "pixelated" }}
+              />
+              <span className="absolute -bottom-0.5 left-1/2 h-1 w-4/5 -translate-x-1/2 overflow-hidden rounded bg-zinc-950/80">
                 <span
                   className="block h-full bg-emerald-400"
                   style={{ width: `${Math.max(0, Math.min(100, ((u.hp ?? 0) / 33) * 100))}%` }}
