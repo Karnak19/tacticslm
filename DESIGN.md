@@ -10,7 +10,7 @@ its loadout, then watch their squad fight.
 
 ## The grid
 
-- **16×16** grid; some cells are **walls** (generated layouts).
+- **12×12** grid; some cells are **walls** (generated layouts). (Was 16×16; shrunk so matches land in the 3–5 minute target.)
 - Engine handles **pathfinding (A\*)** and **line-of-sight** (raycast past walls).
 - **LLM = intent, engine = legs:** the LLM picks a destination cell ("move to (7,3)");
   the engine validates reachability within move range and walks the unit around walls.
@@ -128,7 +128,7 @@ its loadout, then watch their squad fight.
 
 - **Room-based 1v1** (3 units each): create room → share code/link with a friend →
   both lock in squads → match runs → both spectate live (Convex reactive queries).
-- **Win condition:** elimination, or most total team HP at a turn cap (~20 turns).
+- **Win condition:** elimination, or most total team HP at the round cap (10 rounds — matches target 3–5 minutes).
 
 ## Auth & accounts
 

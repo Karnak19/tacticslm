@@ -284,12 +284,13 @@ export const act = action({
         // aborting mid-response was causing spurious failures.
         const result = await generateText({
           model: openrouter.chat(ctxData.unit.model, {
-            reasoning: { effort: "low", exclude: true },
+            reasoning: { effort: "minimal", exclude: true },
           }),
           output: Output.object({ schema: DecisionSchema }),
           system,
           messages,
           temperature: 0.7,
+          maxOutputTokens: 800,
         });
         decision = result.output;
       } catch (e) {

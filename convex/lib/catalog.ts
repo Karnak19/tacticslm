@@ -361,6 +361,6 @@ export const CATALOG: Array<CatalogItem> = [
 
 // Base statline before items. No innate attack — the weapon is the only attack source.
 export const BASE_STATS = { hp: 20, move: 3, speed: 10 } as const;
-export const GRID_SIZE = 16;
-export const TURN_CAP = 20;
+export const GRID_SIZE = 12;
+export const TURN_CAP = 10;
 export const CONSUMABLE_SLOTS = 2;

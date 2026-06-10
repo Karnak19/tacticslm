@@ -42,7 +42,7 @@ const ITEM_SHEET = (["weapon", "helmet", "chest", "boots", "active", "consumable
 const COACH_SYSTEM = `You are a squad-building coach for TacticsLM, a 3v3 AI-vs-AI tactical grid game. The user designs units: each unit has a PERSONALITY PROMPT (the soul — it drives an autonomous LLM in battle), a gear loadout, and an LLM model choice.
 
 GAME RULES:
-- 16×16 grid with walls. Turn-based, initiative ordered by speed (higher acts first).
+- 12×12 grid with walls. Turn-based, initiative ordered by speed (higher acts first).
 - Each unit is an independent LLM. Teammates coordinate ONLY by short chat messages spoken on their turns — misunderstandings are part of the game.
 - A turn = optional move + one action (attack / active ability / consumable / wait).
 - Base stats before gear: ${BASE_STATS.hp} HP, ${BASE_STATS.move} move, ${BASE_STATS.speed} speed. No innate attack — the weapon defines it.

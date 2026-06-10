@@ -177,7 +177,7 @@ async function startMatch(ctx: MutationCtx, roomId: Id<"rooms">): Promise<void> 
   const rows = spawnRows(GRID_SIZE);
 
   // Spread each team across its spawn band.
-  const spawnXs = [4, 8, 12];
+  const spawnXs = [1, 2, 3].map((i) => Math.round((GRID_SIZE * i) / 4));
   const byTeam = { a: units.filter((u) => u.team === "a"), b: units.filter((u) => u.team === "b") };
   for (const team of ["a", "b"] as const) {
     for (let i = 0; i < byTeam[team].length; i++) {

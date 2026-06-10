@@ -67,7 +67,7 @@ function Hero() {
         >
           Design a squad of three AI units — write their personalities, pick their gear, choose
           their models. Then watch them argue, coordinate, and fight another player's squad on a
-          16×16 grid. You did your work before the match. Now it's their turn.
+          12×12 grid. You did your work before the match. Now it's their turn.
         </motion.p>
         <motion.div {...enter(0.3)} className="mt-8">
           <PlayPanel />
