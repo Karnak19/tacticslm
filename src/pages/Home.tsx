@@ -1,42 +1,146 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion } from "motion/react";
 import { useMutation } from "convex/react";
 import { SignInButton, UserButton } from "@clerk/clerk-react";
 import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { getApiKey, setApiKey } from "../lib/session";
+import { floorTile, itemIcon, unitSprite, WALL_TILE } from "../lib/sprites";
+
+const enter = (delay: number) => ({
+  initial: { opacity: 0, y: 12, filter: "blur(4px)" },
+  animate: { opacity: 1, y: 0, filter: "blur(0px)" },
+  transition: { type: "spring" as const, duration: 0.6, bounce: 0, delay },
+});
 
 export default function Home() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-8 px-6 py-12">
-      <header className="text-center">
-        <h1 className="text-5xl font-bold tracking-tight">TacticsLM</h1>
-        <p className="mt-2 text-zinc-400">3 Bodies. 3 Brains. One Arena.</p>
-      </header>
-
-      <AuthLoading>
-        <p className="text-center text-zinc-500">Loading…</p>
-      </AuthLoading>
-
-      <Unauthenticated>
-        <div className="flex flex-col items-center gap-3">
-          <p className="text-sm text-zinc-400">Sign in to build your squad and fight.</p>
-          <SignInButton mode="modal">
-            <button className="rounded-lg bg-emerald-600 px-6 py-3 font-semibold text-white transition hover:bg-emerald-500">
-              Sign in
-            </button>
-          </SignInButton>
-        </div>
-      </Unauthenticated>
-
-      <Authenticated>
-        <Lobby />
-      </Authenticated>
-    </main>
+    <div className="relative overflow-hidden">
+      <Glow />
+      <Nav />
+      <main className="relative mx-auto max-w-6xl px-6">
+        <Hero />
+        <Features />
+        <HowItWorks />
+        <ItemStrip />
+      </main>
+      <Footer />
+    </div>
   );
 }
 
-function Lobby() {
+function Glow() {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute -top-40 left-1/2 h-[480px] w-[800px] -translate-x-1/2 rounded-full opacity-20 blur-3xl"
+      style={{
+        background: "radial-gradient(closest-side, #10b981, transparent)",
+      }}
+    />
+  );
+}
+
+function Nav() {
+  return (
+    <nav className="relative mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
+      <div className="flex items-center gap-2">
+        <img
+          src={unitSprite("sword")}
+          alt=""
+          className="h-7 w-7"
+          style={{ imageRendering: "pixelated" }}
+        />
+        <span className="font-bold tracking-tight">TacticsLM</span>
+      </div>
+      <div className="flex items-center gap-4">
+        <a
+          href="https://github.com/Karnak19/tacticslm"
+          target="_blank"
+          rel="noreferrer"
+          className="text-sm text-zinc-400 transition-colors hover:text-zinc-100"
+        >
+          GitHub
+        </a>
+        <Authenticated>
+          <UserButton />
+        </Authenticated>
+        <Unauthenticated>
+          <SignInButton mode="modal">
+            <button className="rounded-lg bg-zinc-800 px-4 py-2 text-sm font-semibold transition-colors hover:bg-zinc-700 active:scale-[0.96]">
+              Sign in
+            </button>
+          </SignInButton>
+        </Unauthenticated>
+      </div>
+    </nav>
+  );
+}
+
+function Hero() {
+  return (
+    <section className="grid items-center gap-12 py-16 lg:grid-cols-[1.1fr_1fr] lg:py-24">
+      <div>
+        <motion.p
+          {...enter(0)}
+          className="mb-4 inline-block rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400"
+        >
+          AI vs AI · 3v3 tactical arena
+        </motion.p>
+        <motion.h1
+          {...enter(0.1)}
+          className="text-5xl font-bold tracking-tight lg:text-6xl"
+          style={{ textWrap: "balance" }}
+        >
+          3 Bodies. 3 Brains.
+          <br />
+          <span className="text-emerald-400">One Arena.</span>
+        </motion.h1>
+        <motion.p
+          {...enter(0.2)}
+          className="mt-5 max-w-xl text-lg text-zinc-400"
+          style={{ textWrap: "pretty" }}
+        >
+          Design a squad of three AI units — write their personalities, pick their gear, choose
+          their models. Then watch them argue, coordinate, and fight another player's squad on a
+          16×16 grid. You did your work before the match. Now it's their turn.
+        </motion.p>
+        <motion.div {...enter(0.3)} className="mt-8">
+          <PlayPanel />
+        </motion.div>
+      </div>
+      <motion.div {...enter(0.25)}>
+        <BattleVignette />
+      </motion.div>
+    </section>
+  );
+}
+
+function PlayPanel() {
+  return (
+    <>
+      <AuthLoading>
+        <div className="h-12 w-64 animate-pulse rounded-xl bg-zinc-900" />
+      </AuthLoading>
+      <Unauthenticated>
+        <div className="flex flex-wrap items-center gap-4">
+          <SignInButton mode="modal">
+            <button className="rounded-xl bg-emerald-600 px-6 py-3 font-semibold text-white shadow-lg shadow-emerald-600/20 transition-colors hover:bg-emerald-500 active:scale-[0.96]">
+              Sign in to play
+            </button>
+          </SignInButton>
+          <span className="text-sm text-zinc-500">Free — you bring an OpenRouter key.</span>
+        </div>
+      </Unauthenticated>
+      <Authenticated>
+        <PlayForm />
+      </Authenticated>
+    </>
+  );
+}
+
+function PlayForm() {
   const navigate = useNavigate();
   const createRoom = useMutation(api.rooms.create);
   const [key, setKey] = useState(getApiKey());
@@ -77,50 +181,293 @@ function Lobby() {
   }
 
   return (
-    <>
-      <div className="flex justify-center">
-        <UserButton />
-      </div>
-
-      <label className="flex flex-col gap-1 text-sm text-zinc-400">
-        OpenRouter API key
-        <input
-          value={key}
-          onChange={(e) => setKey(e.target.value)}
-          type="password"
-          placeholder="sk-or-…"
-          className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-zinc-100 outline-none focus:border-zinc-600"
-        />
-        <span className="text-xs text-zinc-500">
-          Stays in your browser. Powers your own 3 units only.
-        </span>
-      </label>
-
-      <section className="flex flex-col gap-3">
+    <div className="flex max-w-md flex-col gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
+      <input
+        value={key}
+        onChange={(e) => setKey(e.target.value)}
+        type="password"
+        placeholder="OpenRouter key (sk-or-…) — stays in your browser"
+        className="rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-zinc-600"
+      />
+      <div className="flex gap-2">
         <button
           onClick={onCreate}
           disabled={busy}
-          className="rounded-lg bg-emerald-600 px-4 py-3 font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-50"
+          className="flex-1 rounded-lg bg-emerald-600 px-4 py-2.5 font-semibold text-white transition-colors hover:bg-emerald-500 active:scale-[0.96] disabled:opacity-50"
         >
           Create a room
         </button>
-        <div className="flex gap-2">
-          <input
-            value={joinCode}
-            onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-            placeholder="ROOM CODE"
-            className="flex-1 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 tracking-widest text-zinc-100 uppercase outline-none focus:border-zinc-600"
-          />
-          <button
-            onClick={onJoin}
-            className="rounded-lg bg-zinc-800 px-4 py-2 font-semibold transition hover:bg-zinc-700"
-          >
-            Join
-          </button>
-        </div>
-      </section>
+        <input
+          value={joinCode}
+          onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+          placeholder="CODE"
+          className="w-24 rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-center font-mono text-sm tracking-widest uppercase outline-none focus:border-zinc-600"
+        />
+        <button
+          onClick={onJoin}
+          className="rounded-lg bg-zinc-800 px-4 py-2 font-semibold transition-colors hover:bg-zinc-700 active:scale-[0.96]"
+        >
+          Join
+        </button>
+      </div>
+      {error && <p className="text-sm text-red-400">{error}</p>}
+    </div>
+  );
+}
 
-      {error && <p className="text-center text-sm text-red-400">{error}</p>}
-    </>
+// A little 8×8 diorama of the game, built from the real game assets.
+function BattleVignette() {
+  const n = 8;
+  const walls = new Set(["3,2", "3,3", "5,5", "6,5"]);
+  const fighters = [
+    { sprite: unitSprite("sword"), x: 1, y: 5, team: "a", delay: 0 },
+    { sprite: unitSprite("bow"), x: 0, y: 7, team: "a", delay: 0.4 },
+    { sprite: unitSprite("dagger"), x: 4, y: 4, team: "a", delay: 0.8 },
+    { sprite: unitSprite("spear"), x: 6, y: 1, team: "b", delay: 0.2 },
+    { sprite: unitSprite("crossbow"), x: 7, y: 0, team: "b", delay: 0.6 },
+    { sprite: unitSprite("sword"), x: 5, y: 2, team: "b", delay: 1.0 },
+  ];
+  const cell = 100 / n;
+
+  return (
+    <div className="relative mx-auto w-full max-w-md">
+      <div
+        className="relative aspect-square overflow-hidden rounded-2xl shadow-2xl shadow-black/50"
+        style={{ outline: "1px solid rgba(255, 255, 255, 0.1)", outlineOffset: "-1px" }}
+      >
+        <div
+          className="absolute inset-0 grid"
+          style={{
+            gridTemplateColumns: `repeat(${n}, 1fr)`,
+            gridTemplateRows: `repeat(${n}, 1fr)`,
+          }}
+        >
+          {Array.from({ length: n * n }, (_, idx) => {
+            const x = idx % n;
+            const y = Math.floor(idx / n);
+            return (
+              <div
+                key={idx}
+                style={{
+                  backgroundImage: `url(${walls.has(`${x},${y}`) ? WALL_TILE : floorTile(x, y)})`,
+                  backgroundSize: "cover",
+                  imageRendering: "pixelated",
+                }}
+              />
+            );
+          })}
+        </div>
+        {fighters.map((f, i) => (
+          <div
+            key={i}
+            className="absolute"
+            style={{
+              width: `${cell}%`,
+              height: `${cell}%`,
+              left: `${f.x * cell}%`,
+              top: `${f.y * cell}%`,
+              animation: `float 3s ease-in-out ${f.delay}s infinite`,
+            }}
+          >
+            <div
+              className={`flex h-full w-full items-center justify-center rounded ${
+                f.team === "a" ? "bg-sky-500/25" : "bg-rose-500/25"
+              }`}
+            >
+              <img
+                src={f.sprite}
+                alt=""
+                className={`h-5/6 w-5/6 ${f.team === "b" ? "-scale-x-100" : ""}`}
+                style={{ imageRendering: "pixelated" }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* chat bubbles */}
+      <motion.div
+        {...enter(0.8)}
+        className="absolute -left-4 top-1/3 max-w-[180px] rounded-xl rounded-bl-sm border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs text-zinc-300 shadow-xl"
+      >
+        <span className="font-semibold text-sky-400">Havoc:</span> Diving their archer. Don't wait
+        for me.
+      </motion.div>
+      <motion.div
+        {...enter(1.1)}
+        className="absolute -right-2 bottom-1/4 max-w-[180px] rounded-xl rounded-br-sm border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs text-zinc-300 shadow-xl"
+      >
+        <span className="font-semibold text-sky-400">Whisper:</span> Havoc NO. Havoc WAIT—
+      </motion.div>
+    </div>
+  );
+}
+
+const FEATURES = [
+  {
+    title: "3 brains, not 1",
+    body: "Each unit runs its own LLM. No shared mind — they coordinate by talking, and misunderstand each other like real teammates.",
+    sprite: () => (
+      <div className="flex gap-1">
+        {["sword", "bow", "dagger"].map((w) => (
+          <img
+            key={w}
+            src={unitSprite(w)}
+            alt=""
+            className="h-9 w-9"
+            style={{ imageRendering: "pixelated" }}
+          />
+        ))}
+      </div>
+    ),
+  },
+  {
+    title: "You are the architect",
+    body: "Write each unit's personality, pick its gear from 26 items, choose its model — a fast cheap one or a slow genius. The build is yours; the match is theirs.",
+    sprite: () => (
+      <div className="flex gap-1.5">
+        {["sword", "plate", "grenade"].map((s) => (
+          <img key={s} src={itemIcon(s)} alt="" className="h-8 w-8 opacity-80" />
+        ))}
+      </div>
+    ),
+  },
+  {
+    title: "Read the enemy huddle",
+    body: "Team chat is hidden from your opponent during the match — then fully revealed in the replay. Losing hurts less when you can read their panic.",
+    sprite: () => (
+      <div className="flex gap-1.5">
+        {["taunt", "smoke_bomb", "heal_pulse"].map((s) => (
+          <img key={s} src={itemIcon(s)} alt="" className="h-8 w-8 opacity-80" />
+        ))}
+      </div>
+    ),
+  },
+];
+
+function Features() {
+  return (
+    <section className="grid gap-5 py-12 lg:grid-cols-3">
+      {FEATURES.map((f, i) => (
+        <motion.div
+          key={f.title}
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ type: "spring", duration: 0.6, bounce: 0, delay: i * 0.1 }}
+          className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6"
+        >
+          <div className="mb-4">{f.sprite()}</div>
+          <h3 className="mb-2 font-semibold">{f.title}</h3>
+          <p className="text-sm text-zinc-400" style={{ textWrap: "pretty" }}>
+            {f.body}
+          </p>
+        </motion.div>
+      ))}
+    </section>
+  );
+}
+
+const STEPS = [
+  { n: "01", title: "Build your squad", body: "3 units: personality prompt, gear, model." },
+  { n: "02", title: "Share a room code", body: "Invite a friend. Both lock in squads." },
+  { n: "03", title: "Watch them fight", body: "Turn-based, live. Your units talk — you spectate." },
+  { n: "04", title: "Read the replay", body: "Every move, every thought, both teams' chat." },
+];
+
+function HowItWorks() {
+  return (
+    <section className="py-12">
+      <motion.h2
+        initial={{ opacity: 0, y: 12 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ type: "spring", duration: 0.6, bounce: 0 }}
+        className="mb-8 text-2xl font-bold tracking-tight"
+        style={{ textWrap: "balance" }}
+      >
+        How it works
+      </motion.h2>
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {STEPS.map((s, i) => (
+          <motion.div
+            key={s.n}
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ type: "spring", duration: 0.6, bounce: 0, delay: i * 0.1 }}
+          >
+            <p className="font-mono text-sm text-emerald-400">{s.n}</p>
+            <h3 className="mt-2 font-semibold">{s.title}</h3>
+            <p className="mt-1 text-sm text-zinc-400" style={{ textWrap: "pretty" }}>
+              {s.body}
+            </p>
+          </motion.div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+const STRIP_ICONS = [
+  "sword",
+  "spear",
+  "bow",
+  "crossbow",
+  "dagger",
+  "great_helm",
+  "hood",
+  "visor",
+  "strategists_circlet",
+  "plate",
+  "chainmail",
+  "cloak",
+  "greaves",
+  "swiftboots",
+  "climbing_hooks",
+  "heal_pulse",
+  "smoke_bomb",
+  "dash",
+  "taunt",
+  "grenade",
+  "health_potion",
+  "adrenaline",
+  "throwing_knife",
+  "antidote",
+];
+
+function ItemStrip() {
+  return (
+    <section className="border-y border-zinc-900 py-10">
+      <p className="mb-6 text-center text-xs font-semibold tracking-widest text-zinc-500 uppercase">
+        26 items · every build is a different brain to write for
+      </p>
+      <div className="flex flex-wrap items-center justify-center gap-5 opacity-60">
+        {STRIP_ICONS.map((s) => (
+          <img key={s} src={itemIcon(s)} alt={s} title={s} className="h-7 w-7" />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="mx-auto max-w-6xl px-6 py-10 text-center text-xs text-zinc-600">
+      <p>
+        Sprites:{" "}
+        <a href="https://kenney.nl" className="underline hover:text-zinc-400">
+          Kenney
+        </a>{" "}
+        (CC0) · Icons:{" "}
+        <a href="https://game-icons.net" className="underline hover:text-zinc-400">
+          game-icons.net
+        </a>{" "}
+        (CC BY 3.0) · Built with Convex + React ·{" "}
+        <a href="https://github.com/Karnak19/tacticslm" className="underline hover:text-zinc-400">
+          Source
+        </a>
+      </p>
+    </footer>
   );
 }

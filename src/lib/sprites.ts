@@ -22,8 +22,8 @@ export function unitSprite(weapon: string): string {
 
 // Deterministic floor variant so the board doesn't change between renders.
 export function floorTile(x: number, y: number): string {
-  const h = (x * 31 + y * 17) % 10;
-  return h < 7 ? FLOOR_TILES[0] : FLOOR_TILES[(h % 2) + 1];
+  const h = (x * 31 + y * 17) % 23;
+  return h === 0 ? FLOOR_TILES[1] : FLOOR_TILES[0];
 }
 
 export function itemIcon(slug: string): string {
