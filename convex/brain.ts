@@ -88,7 +88,6 @@ type DbAction =
 const DecisionSchema = z.object({
   thinking: z
     .string()
-    .max(500)
     .describe("Brief tactical reasoning, in character. Shown in the post-match replay."),
   moveTo: z
     .object({ x: z.number().int(), y: z.number().int() })
@@ -164,9 +163,24 @@ RULES:
 - Only pick moveTo from your REACHABLE CELLS list.
 - Attacks need the target within your weapon range${stats.needsLos ? " and line of sight" : ""}.
 - Your message to teammates is limited to ${BASE_MESSAGE_BUDGET * stats.messageBudgetMultiplier} characters.
-- If your action is illegal it will be rejected and you will be asked again; repeated failures waste your turn.`;
+- If your action is illegal it will be rejected and you will be asked again; repeated failures waste your turn.
+- The match ends at the round cap: the team with more total HP wins. If you cannot attack this turn, ADVANCE toward the enemy — waiting in safety is how you lose on points.`;
 
-  const user = `ROUND ${match.roundNumber} (cap ${match.turnCap}). You are at (${me.position.x},${me.position.y}) with ${me.hp} HP.
+  const myTeamHp = units
+    .filter((u) => u.team === unit.team)
+    .reduce((sum, u) => sum + (u.alive ? (u.hp ?? 0) : 0), 0);
+  const enemyTeamHp = units
+    .filter((u) => u.team !== unit.team)
+    .reduce((sum, u) => sum + (u.alive ? (u.hp ?? 0) : 0), 0);
+  const standing =
+    myTeamHp > enemyTeamHp
+      ? "Your team is AHEAD on HP — if the round cap hits, you win."
+      : myTeamHp < enemyTeamHp
+        ? "Your team is BEHIND on HP — if nothing changes by the round cap, YOU LOSE. Passivity is defeat."
+        : "Teams are TIED on HP — a draw at the cap. You need damage to win.";
+
+  const user = `ROUND ${match.roundNumber} of ${match.turnCap}. Team HP: yours ${myTeamHp} vs theirs ${enemyTeamHp}. ${standing}
+You are at (${me.position.x},${me.position.y}) with ${me.hp} HP.
 
 YOUR GEAR:
 ${gear}
@@ -261,7 +275,7 @@ export const act = action({
       let decision: z.infer<typeof DecisionSchema>;
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 30000);
+        const timeout = setTimeout(() => controller.abort(), 90000);
         const result = await generateText({
           model: openrouter.chat(ctxData.unit.model),
           output: Output.object({ schema: DecisionSchema }),
@@ -274,7 +288,7 @@ export const act = action({
         decision = result.output;
       } catch (e) {
         console.error("brain.act LLM call failed:", e);
-        break; // fall through to the safe default
+        continue; // retry; falls through to the safe default after MAX_LLM_RETRIES
       }
 
       try {
