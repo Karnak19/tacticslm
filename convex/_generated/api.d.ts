@@ -10,6 +10,7 @@
 
 import type * as brain from "../brain.js";
 import type * as dev from "../dev.js";
+import type * as http from "../http.js";
 import type * as items from "../items.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_catalog from "../lib/catalog.js";
@@ -24,6 +25,7 @@ import type { ApiFromModules, FilterApi, FunctionReference } from "convex/server
 declare const fullApi: ApiFromModules<{
   brain: typeof brain;
   dev: typeof dev;
+  http: typeof http;
   items: typeof items;
   "lib/auth": typeof lib_auth;
   "lib/catalog": typeof lib_catalog;

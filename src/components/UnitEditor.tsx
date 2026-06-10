@@ -4,6 +4,7 @@ import { resolveStats, type ResolvedStats } from "../../convex/lib/engine";
 import type { CatalogItem } from "../../convex/lib/catalog";
 import { itemIcon, SKINS, skinSprite } from "../lib/sprites";
 import ModelPicker from "./ModelPicker";
+import CoachChat from "./CoachChat";
 
 export type Loadout = {
   weapon: string;
@@ -85,7 +86,7 @@ export default function UnitEditor({
   const detail = hovered;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
+    <div className="grid gap-6 lg:grid-cols-[300px_1fr_360px]">
       {/* ── Left: the character ── */}
       <div className="flex flex-col gap-4">
         <input
@@ -190,6 +191,11 @@ export default function UnitEditor({
             </div>
           )}
         </div>
+      </div>
+
+      {/* ── Coach: ask an LLM for builds & personalities ── */}
+      <div className="max-h-[820px] min-h-[480px]">
+        <CoachChat onUsePersonality={(text) => onChange({ personality: text })} />
       </div>
     </div>
   );
