@@ -410,15 +410,30 @@ function Footer() {
     <footer className="mx-auto max-w-6xl px-6 py-10 text-center text-xs text-zinc-600">
       <p>
         Sprites:{" "}
-        <a href="https://kenney.nl" className="underline hover:text-zinc-400">
+        <a
+          href="https://kenney.nl"
+          target="_blank"
+          rel="noreferrer"
+          className="underline hover:text-zinc-400"
+        >
           Kenney
         </a>{" "}
         (CC0) · Icons:{" "}
-        <a href="https://game-icons.net" className="underline hover:text-zinc-400">
+        <a
+          href="https://game-icons.net"
+          target="_blank"
+          rel="noreferrer"
+          className="underline hover:text-zinc-400"
+        >
           game-icons.net
         </a>{" "}
         (CC BY 3.0) · Built with Convex + React ·{" "}
-        <a href="https://github.com/Karnak19/tacticslm" className="underline hover:text-zinc-400">
+        <a
+          href="https://github.com/Karnak19/tacticslm"
+          target="_blank"
+          rel="noreferrer"
+          className="underline hover:text-zinc-400"
+        >
           Source
         </a>
       </p>
