@@ -1,8 +1,34 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
-import { convertToModelMessages, streamText, type UIMessage } from "ai";
+import { convertToModelMessages, streamText, tool, type UIMessage } from "ai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { z } from "zod";
 import { BASE_STATS, CATALOG } from "./lib/catalog";
+
+const slugsBySlot = (slot: string) =>
+  CATALOG.filter((i) => i.slot === slot).map((i) => i.slug) as [string, ...Array<string>];
+
+// The coach can propose a complete build; the UI renders it as an
+// equippable card. Slugs are validated against the real catalog.
+const proposeBuild = tool({
+  description:
+    "Propose a complete unit build the user can equip with one click. Use this whenever you recommend a full or partial loadout. Always pick exactly 2 consumables.",
+  inputSchema: z.object({
+    name: z.string().optional().describe("A fitting unit name"),
+    weapon: z.enum(slugsBySlot("weapon")),
+    helmet: z.enum(slugsBySlot("helmet")),
+    chest: z.enum(slugsBySlot("chest")),
+    boots: z.enum(slugsBySlot("boots")),
+    active: z.enum(slugsBySlot("active")),
+    consumables: z.array(z.enum(slugsBySlot("consumable"))).length(2),
+    personality: z
+      .string()
+      .optional()
+      .describe("A 2-6 sentence personality prompt matching the build"),
+    rationale: z.string().describe("One or two sentences on why this build works"),
+  }),
+  execute: async () => "Build shown to the user with an Equip button.",
+});
 
 const ITEM_SHEET = (["weapon", "helmet", "chest", "boots", "active", "consumable"] as const)
   .map((slot) => {
@@ -27,6 +53,7 @@ ${ITEM_SHEET}
 
 YOUR JOB:
 - Be opinionated. Suggest concrete builds (synergies between weapon/gear/active) and matching personalities.
+- When you recommend a loadout, CALL the propose_build tool — the user can equip it with one click. Include a matching personality in the tool call when it makes sense. Briefly explain the build in your text too.
 - Personalities matter most: aggression vs caution, how they talk to teammates, target priorities, when to retreat, how they use consumables. A good personality references the unit's own kit.
 - When you propose a personality prompt the user can use directly, put it inside a fenced markdown code block (\`\`\`). The UI shows a "Use this personality" button next to each code block — so the code block must contain ONLY the personality text itself.
 - Keep personalities 2-6 sentences. They are injected into the unit's system prompt; the app already explains the rules to the unit.
@@ -76,6 +103,7 @@ http.route({
       system: COACH_SYSTEM,
       messages: await convertToModelMessages(messages),
       temperature: 0.7,
+      tools: { propose_build: proposeBuild },
     });
 
     const response = result.toUIMessageStreamResponse();

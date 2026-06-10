@@ -4,7 +4,7 @@ import { resolveStats, type ResolvedStats } from "../../convex/lib/engine";
 import type { CatalogItem } from "../../convex/lib/catalog";
 import { itemIcon, SKINS, skinSprite } from "../lib/sprites";
 import ModelPicker from "./ModelPicker";
-import CoachChat from "./CoachChat";
+import CoachChat, { type ProposedBuild } from "./CoachChat";
 
 export type Loadout = {
   weapon: string;
@@ -195,7 +195,23 @@ export default function UnitEditor({
 
       {/* ── Coach: ask an LLM for builds & personalities ── */}
       <div className="max-h-[820px] min-h-[480px]">
-        <CoachChat onUsePersonality={(text) => onChange({ personality: text })} />
+        <CoachChat
+          onUsePersonality={(text) => onChange({ personality: text })}
+          onApplyBuild={(build: ProposedBuild) =>
+            onChange({
+              ...(build.name ? { name: build.name } : {}),
+              ...(build.personality ? { personality: build.personality } : {}),
+              loadout: {
+                weapon: build.weapon,
+                helmet: build.helmet,
+                chest: build.chest,
+                boots: build.boots,
+                active: build.active,
+                consumables: build.consumables.slice(0, 2),
+              },
+            })
+          }
+        />
       </div>
     </div>
   );

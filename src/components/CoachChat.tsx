@@ -21,6 +21,7 @@ import {
   type PromptInputMessage,
 } from "./ai-elements/prompt-input";
 import ModelPicker from "./ModelPicker";
+import { itemIcon } from "../lib/sprites";
 import { getApiKey } from "../lib/session";
 
 const COACH_URL = (import.meta.env.VITE_CONVEX_URL as string).replace(".cloud", ".site") + "/coach";
@@ -49,10 +50,24 @@ function messageText(parts: Array<{ type: string; text?: string }>): string {
     .join("");
 }
 
+export type ProposedBuild = {
+  name?: string;
+  weapon: string;
+  helmet: string;
+  chest: string;
+  boots: string;
+  active: string;
+  consumables: Array<string>;
+  personality?: string;
+  rationale: string;
+};
+
 export default function CoachChat({
   onUsePersonality,
+  onApplyBuild,
 }: {
   onUsePersonality: (text: string) => void;
+  onApplyBuild: (build: ProposedBuild) => void;
 }) {
   const [model, setModel] = useState("google/gemini-2.5-flash");
   const [applied, setApplied] = useState<string | null>(null);
@@ -116,6 +131,9 @@ export default function CoachChat({
                     </Message>
                   );
                 }
+                const builds = (message.parts as Array<{ type: string; input?: ProposedBuild }>)
+                  .filter((p) => p.type === "tool-propose_build" && p.input?.weapon)
+                  .map((p) => p.input!);
                 return (
                   <Message from="assistant" key={message.id}>
                     <MessageContent className="space-y-2">
@@ -147,6 +165,18 @@ export default function CoachChat({
                           </div>
                         ),
                       )}
+                      {builds.map((build, i) => (
+                        <BuildCard
+                          key={`build-${i}`}
+                          build={build}
+                          onApply={() => {
+                            onApplyBuild(build);
+                            setApplied(`build-${message.id}-${i}`);
+                            setTimeout(() => setApplied(null), 1500);
+                          }}
+                          applied={applied === `build-${message.id}-${i}`}
+                        />
+                      ))}
                     </MessageContent>
                   </Message>
                 );
@@ -168,6 +198,62 @@ export default function CoachChat({
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+function BuildCard({
+  build,
+  onApply,
+  applied,
+}: {
+  build: ProposedBuild;
+  onApply: () => void;
+  applied: boolean;
+}) {
+  const slots = [build.weapon, build.helmet, build.chest, build.boots, build.active];
+  return (
+    <div className="rounded-lg border border-emerald-500/30 bg-zinc-900 p-3">
+      {build.name && <p className="mb-1 text-sm font-semibold">{build.name}</p>}
+      <div className="mb-2 flex items-center gap-2">
+        {slots.map((slug) => (
+          <img
+            key={slug}
+            src={itemIcon(slug)}
+            alt={slug}
+            title={slug}
+            className="h-6 w-6 opacity-90"
+          />
+        ))}
+        <span className="mx-1 text-zinc-600">+</span>
+        {build.consumables.map((slug) => (
+          <img
+            key={slug}
+            src={itemIcon(slug)}
+            alt={slug}
+            title={slug}
+            className="h-5 w-5 opacity-70"
+          />
+        ))}
+      </div>
+      <p className="text-xs text-zinc-400">{build.rationale}</p>
+      {build.personality && (
+        <p className="mt-1.5 border-l-2 border-zinc-700 pl-2 text-xs text-zinc-300 italic">
+          {build.personality}
+        </p>
+      )}
+      <button
+        onClick={onApply}
+        className="mt-2 flex items-center gap-1.5 rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white transition-colors hover:bg-emerald-500 active:scale-[0.96]"
+      >
+        {applied ? (
+          <>
+            <CheckIcon className="size-3" /> Equipped
+          </>
+        ) : (
+          "Equip this build"
+        )}
+      </button>
     </div>
   );
 }
