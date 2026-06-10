@@ -12,6 +12,7 @@ import {
   ConversationScrollButton,
 } from "./ai-elements/conversation";
 import { Message, MessageContent } from "./ai-elements/message";
+import { Response } from "./ai-elements/response";
 import {
   PromptInput,
   PromptInputBody,
@@ -120,9 +121,9 @@ export default function CoachChat({
                     <MessageContent className="space-y-2">
                       {parseBlocks(text).map((block, i) =>
                         block.kind === "text" ? (
-                          <p className="text-sm whitespace-pre-wrap" key={i}>
+                          <Response className="text-sm" key={i}>
                             {block.text}
-                          </p>
+                          </Response>
                         ) : (
                           <div
                             className="rounded-lg border border-emerald-500/30 bg-zinc-900 p-2"
