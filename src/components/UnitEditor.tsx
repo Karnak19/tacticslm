@@ -3,6 +3,7 @@ import type { Doc } from "../../convex/_generated/dataModel";
 import { resolveStats, type ResolvedStats } from "../../convex/lib/engine";
 import type { CatalogItem } from "../../convex/lib/catalog";
 import { itemIcon, SKINS, skinSprite } from "../lib/sprites";
+import ModelPicker from "./ModelPicker";
 
 export type Loadout = {
   weapon: string;
@@ -20,14 +21,6 @@ export type UnitDraft = {
   skin?: string;
   loadout: Loadout;
 };
-
-export const MODEL_SUGGESTIONS = [
-  "google/gemini-2.5-flash",
-  "anthropic/claude-haiku-4.5",
-  "anthropic/claude-sonnet-4.6",
-  "openai/gpt-5-mini",
-  "deepseek/deepseek-chat-v3.1",
-];
 
 type GearSlot = "weapon" | "helmet" | "chest" | "boots" | "active";
 type AnySlot = GearSlot | "consumable" | "skin";
@@ -127,20 +120,10 @@ export default function UnitEditor({
             className="resize-none rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-600"
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-zinc-400">
-          Brain (OpenRouter model id)
-          <input
-            value={unit.model}
-            onChange={(e) => onChange({ model: e.target.value })}
-            list="model-suggestions"
-            className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 font-mono text-sm outline-none focus:border-zinc-600"
-          />
-        </label>
-        <datalist id="model-suggestions">
-          {MODEL_SUGGESTIONS.map((m) => (
-            <option key={m} value={m} />
-          ))}
-        </datalist>
+        <div className="flex flex-col gap-1 text-xs text-zinc-400">
+          <span>Brain (OpenRouter model)</span>
+          <ModelPicker value={unit.model} onChange={(model) => onChange({ model })} />
+        </div>
       </div>
 
       {/* ── Right: the full inventory, grouped by category ── */}
