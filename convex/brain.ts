@@ -92,9 +92,10 @@ const DecisionSchema = z.object({
       "Your tactical reasoning, in character — 2 or 3 sentences MAX. Shown in the post-match replay.",
     ),
   moveTo: z
-    .object({ x: z.number().int(), y: z.number().int() })
-    .nullish()
-    .describe("Destination cell from your REACHABLE CELLS list, or null to stay."),
+    .union([z.object({ x: z.number().int(), y: z.number().int() }), z.null()])
+    .describe(
+      "REQUIRED. Destination cell from your REACHABLE CELLS list. Use null ONLY if standing still is a deliberate tactical choice. If your thinking says you advance/retreat/flank, this field MUST contain the cell.",
+    ),
   action: z.object({
     kind: z.enum(["attack", "active", "consumable", "wait"]),
     targetUnitName: z
@@ -166,6 +167,7 @@ RULES:
 - Attacks need the target within your weapon range${stats.needsLos ? " and line of sight" : ""}.
 - Your message to teammates is limited to ${BASE_MESSAGE_BUDGET * stats.messageBudgetMultiplier} characters.
 - If your action is illegal it will be rejected and you will be asked again; repeated failures waste your turn.
+- Your decision fields must match your thinking: if you plan to move, SET moveTo. A null moveTo means you stand still.
 - The match ends at the round cap: the team with more total HP wins. If you cannot attack this turn, ADVANCE toward the enemy — waiting in safety is how you lose on points.`;
 
   const myTeamHp = units
