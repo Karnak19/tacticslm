@@ -16,9 +16,11 @@ import type * as lib_auth from "../lib/auth.js";
 import type * as lib_catalog from "../lib/catalog.js";
 import type * as lib_db from "../lib/db.js";
 import type * as lib_engine from "../lib/engine.js";
+import type * as lib_starters from "../lib/starters.js";
 import type * as matches from "../matches.js";
 import type * as rooms from "../rooms.js";
 import type * as roster from "../roster.js";
+import type * as users from "../users.js";
 
 import type { ApiFromModules, FilterApi, FunctionReference } from "convex/server";
 
@@ -31,9 +33,11 @@ declare const fullApi: ApiFromModules<{
   "lib/catalog": typeof lib_catalog;
   "lib/db": typeof lib_db;
   "lib/engine": typeof lib_engine;
+  "lib/starters": typeof lib_starters;
   matches: typeof matches;
   rooms: typeof rooms;
   roster: typeof roster;
+  users: typeof users;
 }>;
 
 /**

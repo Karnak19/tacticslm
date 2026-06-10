@@ -1,5 +1,6 @@
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { STARTER_UNITS } from "./starters";
 
 export async function currentUser(ctx: QueryCtx): Promise<Doc<"users"> | null> {
   const identity = await ctx.auth.getUserIdentity();
@@ -33,5 +34,9 @@ export async function ensureUser(ctx: MutationCtx): Promise<Doc<"users">> {
     clerkId: identity.subject,
     name: identity.nickname ?? identity.name ?? "Commander",
   });
+  // Every new commander starts with a ready-to-fight squad.
+  for (const unit of STARTER_UNITS) {
+    await ctx.db.insert("rosterUnits", { userId: id, ...unit });
+  }
   return (await ctx.db.get(id))!;
 }
