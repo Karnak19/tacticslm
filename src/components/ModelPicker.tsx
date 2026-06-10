@@ -17,7 +17,12 @@ import {
   ModelSelectorTrigger,
 } from "./ai-elements/model-selector";
 
-type OpenRouterModel = { id: string; name: string };
+type OpenRouterModel = {
+  id: string;
+  name: string;
+  promptPrice: number; // $/token
+  completionPrice: number;
+};
 
 const RECOMMENDED = [
   "google/gemini-2.5-flash",
@@ -38,6 +43,29 @@ function logoSlug(provider: string): string {
   return LOGO_SLUGS[provider] ?? provider;
 }
 
+// $/token → "$X.XX" per million tokens, with sensible precision.
+function perMillion(price: number): string {
+  const m = price * 1_000_000;
+  if (m >= 100) return `$${Math.round(m)}`;
+  if (m >= 10) return `$${m.toFixed(1)}`;
+  return `$${m.toFixed(2)}`;
+}
+
+function PriceTag({ model }: { model: OpenRouterModel | undefined }) {
+  if (!model) return null;
+  if (model.promptPrice === 0 && model.completionPrice === 0) {
+    return <span className="ml-auto shrink-0 font-mono text-xs text-emerald-400">free</span>;
+  }
+  return (
+    <span
+      className="ml-auto shrink-0 font-mono text-xs text-zinc-500 tabular-nums"
+      title="input / output per 1M tokens"
+    >
+      {perMillion(model.promptPrice)} in · {perMillion(model.completionPrice)} out /M
+    </span>
+  );
+}
+
 let cache: Array<OpenRouterModel> | null = null;
 
 function useOpenRouterModels(): Array<OpenRouterModel> {
@@ -46,12 +74,25 @@ function useOpenRouterModels(): Array<OpenRouterModel> {
     if (cache) return;
     fetch("https://openrouter.ai/api/v1/models")
       .then((r) => r.json())
-      .then((d: { data: Array<OpenRouterModel> }) => {
-        cache = d.data
-          .map((m) => ({ id: m.id, name: m.name }))
-          .sort((a, b) => a.id.localeCompare(b.id));
-        setModels(cache);
-      })
+      .then(
+        (d: {
+          data: Array<{
+            id: string;
+            name: string;
+            pricing?: { prompt?: string; completion?: string };
+          }>;
+        }) => {
+          cache = d.data
+            .map((m) => ({
+              id: m.id,
+              name: m.name,
+              promptPrice: Number(m.pricing?.prompt ?? 0),
+              completionPrice: Number(m.pricing?.completion ?? 0),
+            }))
+            .sort((a, b) => a.id.localeCompare(b.id));
+          setModels(cache);
+        },
+      )
       .catch(() => {});
   }, []);
   return models;
@@ -66,6 +107,7 @@ export default function ModelPicker({
 }) {
   const [open, setOpen] = useState(false);
   const models = useOpenRouterModels();
+  const byId = useMemo(() => new Map(models.map((m) => [m.id, m])), [models]);
 
   const byProvider = useMemo(() => {
     const groups = new Map<string, Array<OpenRouterModel>>();
@@ -107,16 +149,22 @@ export default function ModelPicker({
               <ModelSelectorItem key={`rec-${id}`} value={`rec ${id}`} onSelect={() => select(id)}>
                 <ModelSelectorLogo provider={logoSlug(id.split("/")[0])} />
                 <ModelSelectorName>{id}</ModelSelectorName>
+                <PriceTag model={byId.get(id)} />
               </ModelSelectorItem>
             ))}
           </ModelSelectorGroup>
           {byProvider.map(([providerName, providerModels]) => (
             <ModelSelectorGroup heading={providerName} key={providerName}>
               {providerModels.map((m) => (
-                <ModelSelectorItem key={m.id} value={m.id} onSelect={() => select(m.id)}>
+                <ModelSelectorItem
+                  key={m.id}
+                  value={m.id}
+                  onSelect={() => select(m.id)}
+                  title={m.id}
+                >
                   <ModelSelectorLogo provider={logoSlug(providerName)} />
                   <ModelSelectorName>{m.name}</ModelSelectorName>
-                  <span className="ml-auto truncate font-mono text-xs text-zinc-500">{m.id}</span>
+                  <PriceTag model={m} />
                 </ModelSelectorItem>
               ))}
             </ModelSelectorGroup>
