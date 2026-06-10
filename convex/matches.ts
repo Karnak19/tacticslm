@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { actionValidator, positionValidator } from "./schema";
@@ -211,5 +211,31 @@ export const replay = query({
             .collect()
         : [];
     return { match, turns, messages };
+  },
+});
+
+// Forfeit: any player in the room can concede; the other team wins.
+export const forfeit = mutation({
+  args: { matchId: v.id("matches") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const user = await currentUser(ctx);
+    if (!user) throw new Error("Not authenticated");
+    const match = await ctx.db.get(args.matchId);
+    if (!match || match.status !== "running") throw new Error("Match is not running");
+    const players = await ctx.db
+      .query("players")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+    const player = players.find((p) => p.roomId === match.roomId);
+    if (!player) throw new Error("Not a player in this room");
+
+    await ctx.db.patch(args.matchId, {
+      status: "finished",
+      winnerTeam: player.team === "a" ? "b" : "a",
+      currentUnitId: undefined,
+    });
+    await ctx.db.patch(match.roomId, { status: "finished" });
+    return null;
   },
 });

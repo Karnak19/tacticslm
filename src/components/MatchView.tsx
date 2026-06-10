@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
-import { useAction, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { getApiKey } from "../lib/session";
@@ -10,6 +10,7 @@ import { floorTile, skinSprite, WALL_TILE } from "../lib/sprites";
 export default function MatchView({ room }: { room: Doc<"rooms"> }) {
   const data = useQuery(api.matches.byRoom, { roomId: room._id });
   const act = useAction(api.brain.act);
+  const forfeit = useMutation(api.matches.forfeit);
   const attempted = useRef<string>("");
 
   const match = data?.match;
@@ -76,7 +77,17 @@ export default function MatchView({ room }: { room: Doc<"rooms"> }) {
           Room <span className="font-mono text-emerald-400">{room.code}</span>
         </h1>
         {match.status === "running" ? (
-          <p className="text-sm text-zinc-400">
+          <p className="flex items-center gap-3 text-sm text-zinc-400">
+            <button
+              onClick={() => {
+                if (confirm("Forfeit the match? The other team wins.")) {
+                  forfeit({ matchId: match._id }).catch((e) => console.error(e));
+                }
+              }}
+              className="rounded-md border border-zinc-800 px-2.5 py-1 text-xs text-zinc-500 transition-colors hover:border-red-500/40 hover:text-red-400 active:scale-[0.96]"
+            >
+              Forfeit
+            </button>
             Round {match.roundNumber}/{match.turnCap} —{" "}
             {current ? (
               <>
