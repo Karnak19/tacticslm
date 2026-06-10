@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Authenticated, AuthLoading, Unauthenticated, useMutation, useQuery } from "convex/react";
-import { SignInButton, UserButton } from "@clerk/clerk-react";
+import { SignInButton } from "@clerk/clerk-react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import UnitEditor, { type UnitDraft } from "../components/UnitEditor";
@@ -114,7 +114,6 @@ function DashboardInner() {
             </Link>
           </p>
         </div>
-        <UserButton />
       </header>
 
       {editing ? (

@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { useMutation } from "convex/react";
-import { SignInButton, UserButton } from "@clerk/clerk-react";
+import { SignInButton } from "@clerk/clerk-react";
 import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { getApiKey, setApiKey } from "../lib/session";
+import { getApiKey } from "../lib/session";
 import { floorTile, itemIcon, skinSprite, WALL_TILE } from "../lib/sprites";
 
 const enter = (delay: number) => ({
@@ -18,7 +18,6 @@ export default function Home() {
   return (
     <div className="relative overflow-hidden">
       <Glow />
-      <Nav />
       <main className="relative mx-auto max-w-6xl px-6">
         <Hero />
         <Features />
@@ -39,48 +38,6 @@ function Glow() {
         background: "radial-gradient(closest-side, #10b981, transparent)",
       }}
     />
-  );
-}
-
-function Nav() {
-  return (
-    <nav className="relative mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-      <div className="flex items-center gap-2">
-        <img
-          src={skinSprite(undefined, "sword")}
-          alt=""
-          className="h-7 w-7"
-          style={{ imageRendering: "pixelated" }}
-        />
-        <span className="font-bold tracking-tight">TacticsLM</span>
-      </div>
-      <div className="flex items-center gap-4">
-        <a
-          href="https://github.com/Karnak19/tacticslm"
-          target="_blank"
-          rel="noreferrer"
-          className="text-sm text-zinc-400 transition-colors hover:text-zinc-100"
-        >
-          GitHub
-        </a>
-        <Authenticated>
-          <Link
-            to="/dashboard"
-            className="text-sm text-zinc-400 transition-colors hover:text-zinc-100"
-          >
-            My units
-          </Link>
-          <UserButton />
-        </Authenticated>
-        <Unauthenticated>
-          <SignInButton mode="modal">
-            <button className="rounded-lg bg-zinc-800 px-4 py-2 text-sm font-semibold transition-colors hover:bg-zinc-700 active:scale-[0.96]">
-              Sign in
-            </button>
-          </SignInButton>
-        </Unauthenticated>
-      </div>
-    </nav>
   );
 }
 
@@ -149,17 +106,15 @@ function PlayPanel() {
 function PlayForm() {
   const navigate = useNavigate();
   const createRoom = useMutation(api.rooms.create);
-  const [key, setKey] = useState(getApiKey());
   const [joinCode, setJoinCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   function validate(): boolean {
-    if (!key.trim().startsWith("sk-or-")) {
-      setError("Enter your OpenRouter API key (starts with sk-or-).");
+    if (!getApiKey().trim().startsWith("sk-or-")) {
+      setError("Set your OpenRouter key first — top right, in the navbar.");
       return false;
     }
-    setApiKey(key.trim());
     return true;
   }
 
@@ -188,13 +143,6 @@ function PlayForm() {
 
   return (
     <div className="flex max-w-md flex-col gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
-      <input
-        value={key}
-        onChange={(e) => setKey(e.target.value)}
-        type="password"
-        placeholder="OpenRouter key (sk-or-…) — stays in your browser"
-        className="rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-zinc-600"
-      />
       <div className="flex gap-2">
         <button
           onClick={onCreate}

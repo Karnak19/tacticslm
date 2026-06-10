@@ -3,10 +3,12 @@ import Home from "./pages/Home";
 import Room from "./pages/Room";
 import Dashboard from "./pages/Dashboard";
 import DevEditor from "./pages/DevEditor";
+import SiteNav from "./components/SiteNav";
 
 function App() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
+      <SiteNav />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/dashboard" element={<Dashboard />} />
