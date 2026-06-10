@@ -285,6 +285,11 @@ export const act = action({
         const result = await generateText({
           model: openrouter.chat(ctxData.unit.model, {
             reasoning: { effort: "low", exclude: true },
+            // Pin deepseek to Alibaba: other providers were rejected by
+            // account-level data policies and caused brain errors.
+            ...(ctxData.unit.model.startsWith("deepseek/")
+              ? { provider: { order: ["alibaba"], allow_fallbacks: false } }
+              : {}),
           }),
           output: Output.object({ schema: DecisionSchema }),
           system,
