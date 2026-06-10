@@ -269,15 +269,17 @@ export const act = action({
     });
 
     const { system, user } = buildPrompt(ctxData);
+    let lastError = "";
     const messages: Array<{ role: "user" | "assistant"; content: string }> = [
       { role: "user", content: user },
     ];
 
     for (let attempt = 0; attempt <= MAX_LLM_RETRIES; attempt++) {
       let decision: z.infer<typeof DecisionSchema>;
+      const startedAt = Date.now();
       try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 90000);
+        // No client-side timeout: Convex caps actions at 10 minutes, and
+        // aborting mid-response was causing spurious failures.
         const result = await generateText({
           model: openrouter.chat(ctxData.unit.model, {
             reasoning: { effort: "low", exclude: true },
@@ -286,12 +288,15 @@ export const act = action({
           system,
           messages,
           temperature: 0.7,
-          abortSignal: controller.signal,
         });
-        clearTimeout(timeout);
         decision = result.output;
       } catch (e) {
-        console.error("brain.act LLM call failed:", e);
+        const detail = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+        lastError = e instanceof Error ? e.message : String(e);
+        console.error(
+          `brain.act LLM call failed after ${Date.now() - startedAt}ms (${ctxData.unit.model}, attempt ${attempt + 1}):`,
+          detail,
+        );
         continue; // retry; falls through to the safe default after MAX_LLM_RETRIES
       }
 
@@ -321,12 +326,13 @@ export const act = action({
       }
     }
 
-    // Safe default so a confused model can't stall the match.
+    // Safe default so a confused model can't stall the match. Surface the
+    // failure reason so players can tell "model error" from "chose to wait".
     await ctx.runMutation(internal.matches.applyTurn, {
       matchId: args.matchId,
       unitId: ctxData.unit._id,
       action: { kind: "wait" },
-      thinking: "(decision unavailable — holding position)",
+      thinking: `(brain error — holding position. ${lastError.slice(0, 300)})`,
     });
     return { status: "ok" as const, reason: "defaulted to wait" };
   },
