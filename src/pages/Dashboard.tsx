@@ -5,7 +5,7 @@ import { SignInButton, UserButton } from "@clerk/clerk-react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import UnitEditor, { type UnitDraft } from "../components/UnitEditor";
-import { itemIcon, unitSprite } from "../lib/sprites";
+import { itemIcon, skinSprite } from "../lib/sprites";
 
 const NEW_UNIT: UnitDraft = {
   name: "New Unit",
@@ -69,6 +69,7 @@ function DashboardInner() {
       name: unit.name,
       personality: unit.personality,
       model: unit.model,
+      skin: unit.skin,
       loadout: unit.loadout,
     });
     setEditing(unit._id);
@@ -159,7 +160,7 @@ function DashboardInner() {
               >
                 <div className="flex items-center gap-3">
                   <img
-                    src={unitSprite(unit.loadout.weapon)}
+                    src={skinSprite(unit.skin, unit.loadout.weapon)}
                     alt=""
                     className="h-10 w-10"
                     style={{ imageRendering: "pixelated" }}

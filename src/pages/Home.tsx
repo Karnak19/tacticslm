@@ -6,7 +6,7 @@ import { SignInButton, UserButton } from "@clerk/clerk-react";
 import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { getApiKey, setApiKey } from "../lib/session";
-import { floorTile, itemIcon, unitSprite, WALL_TILE } from "../lib/sprites";
+import { floorTile, itemIcon, skinSprite, WALL_TILE } from "../lib/sprites";
 
 const enter = (delay: number) => ({
   initial: { opacity: 0, y: 12, filter: "blur(4px)" },
@@ -47,7 +47,7 @@ function Nav() {
     <nav className="relative mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
       <div className="flex items-center gap-2">
         <img
-          src={unitSprite("sword")}
+          src={skinSprite(undefined, "sword")}
           alt=""
           className="h-7 w-7"
           style={{ imageRendering: "pixelated" }}
@@ -226,12 +226,12 @@ function BattleVignette() {
   const n = 8;
   const walls = new Set(["3,2", "3,3", "5,5", "6,5"]);
   const fighters = [
-    { sprite: unitSprite("sword"), x: 1, y: 5, team: "a", delay: 0 },
-    { sprite: unitSprite("bow"), x: 0, y: 7, team: "a", delay: 0.4 },
-    { sprite: unitSprite("dagger"), x: 4, y: 4, team: "a", delay: 0.8 },
-    { sprite: unitSprite("spear"), x: 6, y: 1, team: "b", delay: 0.2 },
-    { sprite: unitSprite("crossbow"), x: 7, y: 0, team: "b", delay: 0.6 },
-    { sprite: unitSprite("sword"), x: 5, y: 2, team: "b", delay: 1.0 },
+    { sprite: skinSprite(undefined, "sword"), x: 1, y: 5, team: "a", delay: 0 },
+    { sprite: skinSprite(undefined, "bow"), x: 0, y: 7, team: "a", delay: 0.4 },
+    { sprite: skinSprite(undefined, "dagger"), x: 4, y: 4, team: "a", delay: 0.8 },
+    { sprite: skinSprite(undefined, "spear"), x: 6, y: 1, team: "b", delay: 0.2 },
+    { sprite: skinSprite(undefined, "crossbow"), x: 7, y: 0, team: "b", delay: 0.6 },
+    { sprite: skinSprite(undefined, "sword"), x: 5, y: 2, team: "b", delay: 1.0 },
   ];
   const cell = 100 / n;
 
@@ -318,7 +318,7 @@ const FEATURES = [
         {["sword", "bow", "dagger"].map((w) => (
           <img
             key={w}
-            src={unitSprite(w)}
+            src={skinSprite(undefined, w)}
             alt=""
             className="h-9 w-9"
             style={{ imageRendering: "pixelated" }}

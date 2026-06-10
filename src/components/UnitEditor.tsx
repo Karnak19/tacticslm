@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { resolveStats, type ResolvedStats } from "../../convex/lib/engine";
 import type { CatalogItem } from "../../convex/lib/catalog";
-import { itemIcon, unitSprite } from "../lib/sprites";
+import { itemIcon, SKINS, skinSprite } from "../lib/sprites";
 
 export type Loadout = {
   weapon: string;
@@ -17,6 +17,7 @@ export type UnitDraft = {
   name: string;
   personality: string;
   model: string;
+  skin?: string;
   loadout: Loadout;
 };
 
@@ -29,7 +30,7 @@ export const MODEL_SUGGESTIONS = [
 ];
 
 type GearSlot = "weapon" | "helmet" | "chest" | "boots" | "active";
-type AnySlot = GearSlot | "consumable";
+type AnySlot = GearSlot | "consumable" | "skin";
 
 const SLOT_LABELS: Record<AnySlot, string> = {
   weapon: "Weapon",
@@ -38,6 +39,7 @@ const SLOT_LABELS: Record<AnySlot, string> = {
   boots: "Boots",
   active: "Ability",
   consumable: "Consumables",
+  skin: "Skin",
 };
 
 function toCatalogMap(items: Array<Doc<"items">>) {
@@ -87,8 +89,7 @@ export default function UnitEditor({
     }
   }
 
-  const slotItems = items.filter((i) => i.slot === activeSlot);
-  const detail = hovered ?? items.find((i) => i.slug === currentSlug(unit.loadout, activeSlot));
+  const detail = hovered;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
@@ -103,10 +104,14 @@ export default function UnitEditor({
 
         <Doll
           loadout={unit.loadout}
+          skin={unit.skin}
           activeSlot={activeSlot}
           onSelectSlot={(s) => {
             setActiveSlot(s);
             setHovered(null);
+            document
+              .getElementById(`inv-${s}`)
+              ?.scrollIntoView({ behavior: "smooth", block: "start" });
           }}
         />
 
@@ -138,73 +143,127 @@ export default function UnitEditor({
         </datalist>
       </div>
 
-      {/* ── Right: the item browser ── */}
-      <div className="flex min-h-0 flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-zinc-300">{SLOT_LABELS[activeSlot]}</h3>
-          {activeSlot === "consumable" && (
-            <span className="text-xs text-zinc-500 tabular-nums">
-              {unit.loadout.consumables.length}/2 equipped
-            </span>
+      {/* ── Right: the full inventory, grouped by category ── */}
+      <div className="flex min-h-0 flex-col gap-5">
+        <SkinGroup unit={unit} onChange={onChange} />
+
+        {(["weapon", "helmet", "chest", "boots", "active", "consumable"] as const).map((slot) => (
+          <div key={slot} id={`inv-${slot}`}>
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-zinc-300">{SLOT_LABELS[slot]}</h3>
+              {slot === "consumable" && (
+                <span className="text-xs text-zinc-500 tabular-nums">
+                  {unit.loadout.consumables.length}/2 equipped
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(56px,1fr))] gap-2">
+              {items
+                .filter((i) => i.slot === slot)
+                .map((item) => {
+                  const equipped =
+                    item.slot === "consumable"
+                      ? unit.loadout.consumables.includes(item.slug)
+                      : currentSlug(unit.loadout, item.slot as AnySlot) === item.slug;
+                  return (
+                    <button
+                      key={item.slug}
+                      onClick={() => equip(item)}
+                      onMouseEnter={() => setHovered(item)}
+                      onMouseLeave={() => setHovered(null)}
+                      className={`flex aspect-square items-center justify-center rounded-xl border transition-colors active:scale-[0.96] ${
+                        equipped
+                          ? "border-emerald-500/70 bg-emerald-500/10"
+                          : "border-zinc-800 bg-zinc-900/60 hover:border-zinc-600"
+                      }`}
+                      title={item.name}
+                    >
+                      <img
+                        src={itemIcon(item.slug)}
+                        alt={item.name}
+                        className="h-8 w-8 opacity-90"
+                      />
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+        ))}
+
+        {/* item detail card — sticky so it's visible while browsing */}
+        <div className="sticky bottom-4">
+          {detail && (
+            <div className="rounded-xl border border-zinc-700 bg-zinc-950 p-4 shadow-2xl shadow-black/50">
+              <div className="flex items-center gap-3">
+                <img src={itemIcon(detail.slug)} alt="" className="h-9 w-9" />
+                <div>
+                  <p className="font-semibold">{detail.name}</p>
+                  <p className="text-xs text-zinc-500 capitalize">{detail.slot}</p>
+                </div>
+              </div>
+              <p className="mt-2 text-sm text-zinc-400" style={{ textWrap: "pretty" }}>
+                {detail.description}
+              </p>
+            </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
 
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(56px,1fr))] gap-2">
-          {slotItems.map((item) => {
-            const equipped =
-              item.slot === "consumable"
-                ? unit.loadout.consumables.includes(item.slug)
-                : currentSlug(unit.loadout, activeSlot) === item.slug;
-            return (
-              <button
-                key={item.slug}
-                onClick={() => equip(item)}
-                onMouseEnter={() => setHovered(item)}
-                onMouseLeave={() => setHovered(null)}
-                className={`flex aspect-square items-center justify-center rounded-xl border transition-colors active:scale-[0.96] ${
-                  equipped
-                    ? "border-emerald-500/70 bg-emerald-500/10"
-                    : "border-zinc-800 bg-zinc-900/60 hover:border-zinc-600"
-                }`}
-                title={item.name}
-              >
-                <img src={itemIcon(item.slug)} alt={item.name} className="h-8 w-8 opacity-90" />
-              </button>
-            );
-          })}
-        </div>
-
-        {/* item detail card */}
-        {detail && (
-          <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
-            <div className="flex items-center gap-3">
-              <img src={itemIcon(detail.slug)} alt="" className="h-9 w-9" />
-              <div>
-                <p className="font-semibold">{detail.name}</p>
-                <p className="text-xs text-zinc-500 capitalize">{detail.slot}</p>
-              </div>
-            </div>
-            <p className="mt-2 text-sm text-zinc-400" style={{ textWrap: "pretty" }}>
-              {detail.description}
-            </p>
-          </div>
-        )}
+// Skin row: always visible at the top of the inventory.
+function SkinGroup({
+  unit,
+  onChange,
+}: {
+  unit: UnitDraft;
+  onChange: (patch: Partial<UnitDraft>) => void;
+}) {
+  return (
+    <div id="inv-skin">
+      <h3 className="mb-2 text-sm font-semibold text-zinc-300">Skin</h3>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(56px,1fr))] gap-2">
+        {SKINS.map((s) => {
+          const equipped = skinSprite(unit.skin, unit.loadout.weapon) === s.src;
+          return (
+            <button
+              key={s.slug}
+              onClick={() => onChange({ skin: s.slug })}
+              className={`flex aspect-square items-center justify-center rounded-xl border transition-colors active:scale-[0.96] ${
+                equipped
+                  ? "border-emerald-500/70 bg-emerald-500/10"
+                  : "border-zinc-800 bg-zinc-900/60 hover:border-zinc-600"
+              }`}
+              title={s.name}
+            >
+              <img
+                src={s.src}
+                alt={s.name}
+                className="h-9 w-9"
+                style={{ imageRendering: "pixelated" }}
+              />
+            </button>
+          );
+        })}
       </div>
     </div>
   );
 }
 
 function currentSlug(loadout: Loadout, slot: AnySlot): string | undefined {
-  return slot === "consumable" ? undefined : loadout[slot];
+  return slot === "consumable" || slot === "skin" ? undefined : loadout[slot];
 }
 
 // RPG-style equipment doll: slots arranged around the character sprite.
 function Doll({
   loadout,
+  skin,
   activeSlot,
   onSelectSlot,
 }: {
   loadout: Loadout;
+  skin?: string;
   activeSlot: AnySlot;
   onSelectSlot: (slot: AnySlot) => void;
 }) {
@@ -226,14 +285,22 @@ function Doll({
         <div />
 
         {slot("weapon", loadout.weapon)}
-        <div className="flex h-24 w-24 items-center justify-center rounded-xl bg-zinc-950">
+        <button
+          onClick={() => onSelectSlot("skin")}
+          title="Skin"
+          className={`flex h-24 w-24 items-center justify-center rounded-xl bg-zinc-950 transition-colors active:scale-[0.96] ${
+            activeSlot === "skin"
+              ? "ring-2 ring-emerald-500/70"
+              : "hover:ring-2 hover:ring-zinc-700"
+          }`}
+        >
           <img
-            src={unitSprite(loadout.weapon)}
+            src={skinSprite(skin, loadout.weapon)}
             alt=""
             className="h-20 w-20"
             style={{ imageRendering: "pixelated" }}
           />
-        </div>
+        </button>
         {slot("chest", loadout.chest)}
 
         {slot("active", loadout.active)}

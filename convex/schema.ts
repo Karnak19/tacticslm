@@ -108,6 +108,7 @@ export default defineSchema(
       name: v.string(),
       personality: v.string(),
       model: v.string(),
+      skin: v.optional(v.string()), // sprite slug; falls back to weapon-derived
       loadout: loadoutValidator,
     }).index("by_user", ["userId"]),
 
@@ -134,6 +135,7 @@ export default defineSchema(
       name: v.string(),
       personality: v.string(),
       model: v.string(), // OpenRouter model id, chosen per unit
+      skin: v.optional(v.string()),
       loadout: loadoutValidator,
       // Match state (set when the match starts)
       position: v.optional(positionValidator),

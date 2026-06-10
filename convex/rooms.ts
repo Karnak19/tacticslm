@@ -112,6 +112,7 @@ export const setSquad = mutation({
         name: rosterUnit.name,
         personality: rosterUnit.personality,
         model: rosterUnit.model,
+        skin: rosterUnit.skin,
         loadout,
       });
     }

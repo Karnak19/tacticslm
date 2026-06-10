@@ -5,7 +5,7 @@ import { useAction, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { getApiKey } from "../lib/session";
-import { floorTile, unitSprite, WALL_TILE } from "../lib/sprites";
+import { floorTile, skinSprite, WALL_TILE } from "../lib/sprites";
 
 export default function MatchView({ room }: { room: Doc<"rooms"> }) {
   const data = useQuery(api.matches.byRoom, { roomId: room._id });
@@ -137,7 +137,7 @@ function Board({
               title={`${u.name} — ${u.hp} HP`}
             >
               <img
-                src={unitSprite(u.loadout.weapon)}
+                src={skinSprite(u.skin, u.loadout.weapon)}
                 alt={u.name}
                 className={`h-5/6 w-5/6 ${u.team === "b" ? "-scale-x-100" : ""}`}
                 style={{ imageRendering: "pixelated" }}

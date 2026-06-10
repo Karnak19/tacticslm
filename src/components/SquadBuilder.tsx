@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
-import { itemIcon, unitSprite } from "../lib/sprites";
+import { itemIcon, skinSprite } from "../lib/sprites";
 
 const SQUAD_SIZE = 3;
 
@@ -108,7 +108,7 @@ export default function SquadBuilder({ room, lobby }: { room: Doc<"rooms">; lobb
                 )}
                 <div className="flex items-center gap-3">
                   <img
-                    src={unitSprite(unit.loadout.weapon)}
+                    src={skinSprite(unit.skin, unit.loadout.weapon)}
                     alt=""
                     className="h-10 w-10"
                     style={{ imageRendering: "pixelated" }}

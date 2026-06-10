@@ -25,6 +25,7 @@ export const save = mutation({
     name: v.string(),
     personality: v.string(),
     model: v.string(),
+    skin: v.optional(v.string()),
     loadout: loadoutValidator,
   },
   returns: v.id("rosterUnits"),
@@ -56,6 +57,7 @@ export const save = mutation({
       name: args.name,
       personality: args.personality,
       model: args.model,
+      skin: args.skin,
       loadout: args.loadout,
     };
     if (args.id) {
