@@ -88,7 +88,9 @@ type DbAction =
 const DecisionSchema = z.object({
   thinking: z
     .string()
-    .describe("Your tactical reasoning, in character — 2 or 3 sentences MAX. Shown in the post-match replay."),
+    .describe(
+      "Your tactical reasoning, in character — 2 or 3 sentences MAX. Shown in the post-match replay.",
+    ),
   moveTo: z
     .object({ x: z.number().int(), y: z.number().int() })
     .nullish()
