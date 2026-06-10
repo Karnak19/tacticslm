@@ -299,3 +299,104 @@ describe("generateWalls", () => {
     }
   });
 });
+
+describe("expanded item pool", () => {
+  test("berserker mask adds damage, costs HP", () => {
+    const stats = resolveStats({ ...baseLoadout, helmet: "berserker_mask" }, catalog);
+    expect(stats.damage).toBe(8); // sword 6 + mask 2
+    expect(stats.maxHp).toBe(21); // 20 +3 leather −2 mask
+  });
+
+  test("spiked armor retaliates against melee only", () => {
+    const tank = makeUnit({
+      id: "tank",
+      team: "b",
+      loadout: { ...baseLoadout, chest: "spiked_armor" },
+      position: { x: 0, y: 1 },
+    });
+    const melee = makeUnit({ id: "m", position: { x: 0, y: 0 }, hp: 10 });
+    const { snapshot: out } = resolveTurn(makeSnapshot([melee, tank]), catalog, "m", undefined, {
+      kind: "attack",
+      targetUnitId: "tank",
+    });
+    expect(out.units.find((u) => u.id === "m")!.hp).toBe(9);
+
+    const archer = makeUnit({
+      id: "a",
+      loadout: { ...baseLoadout, weapon: "bow" },
+      position: { x: 0, y: 5 },
+      hp: 10,
+    });
+    const { snapshot: out2 } = resolveTurn(makeSnapshot([archer, tank]), catalog, "a", undefined, {
+      kind: "attack",
+      targetUnitId: "tank",
+    });
+    expect(out2.units.find((u) => u.id === "a")!.hp).toBe(10); // no retaliation at range
+  });
+
+  test("shield wall reduces incoming damage by 2", () => {
+    const defender = makeUnit({
+      id: "d",
+      team: "b",
+      loadout: { ...baseLoadout, active: "shield_wall" },
+      position: { x: 0, y: 1 },
+      hp: 20,
+    });
+    const attacker = makeUnit({ id: "a", position: { x: 0, y: 0 } });
+    let snapshot = makeSnapshot([attacker, defender]);
+    const r1 = resolveTurn(snapshot, catalog, "d", undefined, { kind: "active" });
+    const r2 = resolveTurn(r1.snapshot, catalog, "a", undefined, {
+      kind: "attack",
+      targetUnitId: "d",
+    });
+    expect(r2.snapshot.units.find((u) => u.id === "d")!.hp).toBe(16); // 6 − 2
+  });
+
+  test("blink teleports through walls but not into them", () => {
+    const mage = makeUnit({
+      id: "m",
+      loadout: { ...baseLoadout, active: "blink" },
+      position: { x: 0, y: 0 },
+    });
+    const walls = [
+      { x: 1, y: 0 },
+      { x: 1, y: 1 },
+      { x: 0, y: 1 },
+      { x: 1, y: 2 },
+    ];
+    const snapshot = makeSnapshot([mage], walls);
+    expect(() =>
+      resolveTurn(snapshot, catalog, "m", undefined, {
+        kind: "active",
+        targetCell: { x: 1, y: 0 },
+      }),
+    ).toThrow(IllegalAction);
+    const ok = resolveTurn(snapshot, catalog, "m", undefined, {
+      kind: "active",
+      targetCell: { x: 3, y: 0 },
+    });
+    expect(ok.snapshot.units[0].position).toEqual({ x: 3, y: 0 });
+  });
+
+  test("bomb consumable hits allies, smoke vial blocks LoS", () => {
+    const bomber = makeUnit({
+      id: "b",
+      loadout: { ...baseLoadout, consumables: ["bomb", "smoke_vial"] },
+      position: { x: 0, y: 0 },
+    });
+    const friend = makeUnit({ id: "f", position: { x: 2, y: 2 }, hp: 10 });
+    const r = resolveTurn(makeSnapshot([bomber, friend]), catalog, "b", undefined, {
+      kind: "consumable",
+      slug: "bomb",
+      targetCell: { x: 2, y: 2 },
+    });
+    expect(r.snapshot.units.find((u) => u.id === "f")!.hp).toBe(8);
+
+    const r2 = resolveTurn(makeSnapshot([bomber, friend]), catalog, "b", undefined, {
+      kind: "consumable",
+      slug: "smoke_vial",
+      targetCell: { x: 2, y: 2 },
+    });
+    expect(r2.snapshot.effects.some((e) => e.kind === "smoke")).toBe(true);
+  });
+});

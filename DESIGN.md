@@ -58,6 +58,10 @@ its loadout, then watch their squad fight.
 | Bow | 5 | 4 | needs LoS |
 | Crossbow | 6 | 6 | needs LoS, −3 speed |
 | Dagger | 1 | 4 | +4 speed; +2 dmg if target already acted this round |
+| Greatsword | 1 | 8 | −2 speed, −1 move |
+| Rapier | 1 | 5 | +2 speed |
+| Halberd | 2 | 6 | −2 speed |
+| Sling | 4 | 3 | no LoS needed (lobbed) |
 
 **Helmets:**
 | Helmet | Effect |
@@ -66,6 +70,8 @@ its loadout, then watch their squad fight.
 | Hood | +3 speed |
 | Visor | +1 attack range (ranged weapons only) |
 | Strategist's circlet | teammate messages can be 2× longer |
+| Bascinet | +2 HP, +1 speed |
+| Berserker mask | +2 damage, −2 HP |
 
 **Chest:**
 | Chest | Effect |
@@ -74,6 +80,8 @@ its loadout, then watch their squad fight.
 | Chainmail | +5 HP, −1 speed |
 | Leather | +3 HP |
 | Cloak | +1 move; −1 dmg from first attack each round while not adjacent to an enemy |
+| Brigandine | +6 HP, −1 move |
+| Spiked armor | +4 HP; melee attackers take 1 dmg |
 
 **Boots:**
 | Boots | Effect |
@@ -82,6 +90,8 @@ its loadout, then watch their squad fight.
 | Swiftboots | +1 move |
 | Skirmisher's boots | +3 speed |
 | Climbing hooks | may cross 1 wall cell per move |
+| Heavy sabatons | +3 HP, −1 move |
+| Scout boots | +1 move, +1 speed |
 
 **Actives** (pick 1; **per-item cooldowns** — the balance dial; used instead of attacking):
 | Active | Effect | CD |
@@ -91,6 +101,8 @@ its loadout, then watch their squad fight.
 | Dash | +3 move this turn | 2 |
 | Taunt | enemies in range 4 must target you next turn | 3 |
 | Grenade | range 4, 3 dmg in 3×3, **friendly fire ON** | 4 |
+| Shield wall | −2 dmg taken this round and next | 3 |
+| Blink | teleport to free cell in range 3, through walls | 4 |
 
 **Consumables** (pick 2; single-use; consuming = the turn's action, like attacking):
 | Consumable | Effect |
@@ -99,6 +111,8 @@ its loadout, then watch their squad fight.
 | Adrenaline | +2 move, +4 speed for 2 rounds |
 | Throwing knife | range 3, 3 dmg, no LoS (lobbed) |
 | Antidote | removes debuffs (future-proofing) |
+| Smoke vial | range 3, 3×3 LoS block for 1 round |
+| Bomb | range 3, 2 dmg in 3×3, friendly fire |
 
 ### Turn action
 

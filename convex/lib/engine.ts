@@ -37,6 +37,7 @@ export type Effect =
       expiresAfterRound: number;
     }
   | { kind: "adrenaline"; unitId: string; expiresAfterRound: number }
+  | { kind: "shielded"; unitId: string; expiresAfterRound: number }
   | { kind: "cloak_spent"; unitId: string; expiresAfterRound: number };
 
 export type Snapshot = {
@@ -61,6 +62,7 @@ export type ResolvedStats = {
   attackRange: number;
   needsLos: boolean;
   crossesWalls: boolean;
+  thorns: number; // damage reflected to melee attackers
   messageBudgetMultiplier: number;
 };
 
@@ -87,10 +89,13 @@ export function resolveStats(loadout: Loadout, catalog: Catalog): ResolvedStats 
   let maxHp = BASE_STATS.hp;
   let move = BASE_STATS.move;
   let speed = BASE_STATS.speed;
+  let damage = weapon.stats.damage ?? 0;
   for (const item of gear) {
     maxHp += item.stats.hpBonus ?? 0;
     move += item.stats.moveBonus ?? 0;
     speed += item.stats.speedBonus ?? 0;
+    // Non-weapon gear can grant bonus damage (e.g. berserker mask).
+    if (item !== weapon) damage += item.stats.damage ?? 0;
   }
 
   let attackRange = weapon.stats.range ?? 1;
@@ -103,10 +108,11 @@ export function resolveStats(loadout: Loadout, catalog: Catalog): ResolvedStats 
     maxHp,
     move: Math.max(1, move),
     speed,
-    damage: weapon.stats.damage ?? 0,
+    damage,
     attackRange,
     needsLos: weapon.flags.needsLos ?? false,
     crossesWalls: loadout.boots === "climbing_hooks",
+    thorns: gear.some((g) => g.flags.thorns) ? 1 : 0,
     messageBudgetMultiplier: loadout.helmet === "strategists_circlet" ? 2 : 1,
   };
 }
@@ -347,6 +353,14 @@ function applyDamage(
   events: Array<string>,
 ): void {
   let damage = rawDamage;
+  // Shield wall: −2 damage while the effect lasts.
+  const shielded = snapshot.effects.some(
+    (e) =>
+      e.kind === "shielded" &&
+      e.unitId === target.id &&
+      e.expiresAfterRound >= snapshot.roundNumber,
+  );
+  if (shielded) damage = Math.max(0, damage - 2);
   // Cloak: first attack each round deals −1 while not adjacent to an enemy.
   if (target.loadout.chest === "cloak") {
     const spent = snapshot.effects.some(
@@ -448,6 +462,13 @@ export function resolveTurn(
       }
       events.push(`${unit.name} attacks ${target.name} for ${damage} damage.`);
       applyDamage(snapshot, target, damage, events);
+
+      // Spiked armor: melee attackers take retaliation damage.
+      const targetStats = resolveStats(target.loadout, catalog);
+      if (targetStats.thorns > 0 && dist === 1 && unit.alive) {
+        events.push(`${unit.name} is spiked for ${targetStats.thorns} damage.`);
+        applyDamage(snapshot, unit, targetStats.thorns, events);
+      }
       break;
     }
 
@@ -542,6 +563,34 @@ function resolveAbility(
       );
       break;
     }
+    case "shield_wall": {
+      snapshot.effects.push({
+        kind: "shielded",
+        unitId: unit.id,
+        expiresAfterRound: snapshot.roundNumber + (item.stats.duration ?? 1),
+      });
+      events.push(`${unit.name} raises a shield wall (−2 damage taken).`);
+      break;
+    }
+    case "blink": {
+      if (!action.targetCell) throw new IllegalAction("Blink needs a target cell");
+      const cell = action.targetCell;
+      if (chebyshev(unit.position, cell) > (item.stats.range ?? 0)) {
+        throw new IllegalAction("Blink target out of range");
+      }
+      if (cell.x < 0 || cell.x >= snapshot.gridSize || cell.y < 0 || cell.y >= snapshot.gridSize) {
+        throw new IllegalAction("Blink target out of bounds");
+      }
+      if (snapshot.walls.some((w) => sameCell(w, cell))) {
+        throw new IllegalAction("Cannot blink into a wall");
+      }
+      if (snapshot.units.some((u) => u.alive && u.id !== unit.id && sameCell(u.position, cell))) {
+        throw new IllegalAction("Cell is occupied");
+      }
+      unit.position = { ...cell };
+      events.push(`${unit.name} blinks to (${cell.x},${cell.y}).`);
+      break;
+    }
     case "grenade": {
       if (!action.targetCell) throw new IllegalAction("Grenade needs a target cell");
       if (chebyshev(unit.position, action.targetCell) > (item.stats.range ?? 0)) {
@@ -602,6 +651,36 @@ function resolveConsumable(
         `${unit.name} hurls a throwing knife at ${target.name} for ${item.stats.damage} damage.`,
       );
       applyDamage(snapshot, target, item.stats.damage ?? 0, events);
+      break;
+    }
+    case "smoke_vial": {
+      if (!action.targetCell) throw new IllegalAction("Smoke vial needs a target cell");
+      if (chebyshev(unit.position, action.targetCell) > (item.stats.range ?? 0)) {
+        throw new IllegalAction("Smoke target out of range");
+      }
+      snapshot.effects.push({
+        kind: "smoke",
+        cells: cellsInArea(action.targetCell, item.stats.area ?? 3, snapshot.gridSize),
+        expiresAfterRound: snapshot.roundNumber + (item.stats.duration ?? 1),
+      });
+      events.push(
+        `${unit.name} shatters a smoke vial at (${action.targetCell.x},${action.targetCell.y}).`,
+      );
+      break;
+    }
+    case "bomb": {
+      if (!action.targetCell) throw new IllegalAction("Bomb needs a target cell");
+      if (chebyshev(unit.position, action.targetCell) > (item.stats.range ?? 0)) {
+        throw new IllegalAction("Bomb target out of range");
+      }
+      const cells = cellsInArea(action.targetCell, item.stats.area ?? 3, snapshot.gridSize);
+      events.push(`${unit.name} lobs a bomb at (${action.targetCell.x},${action.targetCell.y})!`);
+      for (const victim of snapshot.units) {
+        if (!victim.alive) continue;
+        if (!cells.some((c) => sameCell(c, victim.position))) continue;
+        events.push(`${victim.name} is caught in the blast for ${item.stats.damage} damage.`);
+        applyDamage(snapshot, victim, item.stats.damage ?? 0, events);
+      }
       break;
     }
     case "antidote": {

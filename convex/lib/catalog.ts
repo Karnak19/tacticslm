@@ -24,6 +24,7 @@ export type CatalogItem = {
     needsLos?: boolean;
     friendlyFire?: boolean;
     crossesWalls?: boolean;
+    thorns?: boolean;
   };
 };
 
@@ -70,6 +71,38 @@ export const CATALOG: Array<CatalogItem> = [
     stats: { damage: 4, range: 1, speedBonus: 4 },
     flags: {},
   },
+  {
+    slug: "greatsword",
+    slot: "weapon",
+    name: "Greatsword",
+    description: "Range 1, 8 damage. Heavy: −2 speed, −1 move.",
+    stats: { damage: 8, range: 1, speedBonus: -2, moveBonus: -1 },
+    flags: {},
+  },
+  {
+    slug: "rapier",
+    slot: "weapon",
+    name: "Rapier",
+    description: "Range 1, 5 damage. Elegant: +2 speed.",
+    stats: { damage: 5, range: 1, speedBonus: 2 },
+    flags: {},
+  },
+  {
+    slug: "halberd",
+    slot: "weapon",
+    name: "Halberd",
+    description: "Range 2, 6 damage. Unwieldy: −2 speed.",
+    stats: { damage: 6, range: 2, speedBonus: -2 },
+    flags: {},
+  },
+  {
+    slug: "sling",
+    slot: "weapon",
+    name: "Sling",
+    description: "Range 4, 3 damage. Lobbed: no line of sight needed.",
+    stats: { damage: 3, range: 4 },
+    flags: {},
+  },
   // Helmets
   {
     slug: "great_helm",
@@ -101,6 +134,22 @@ export const CATALOG: Array<CatalogItem> = [
     name: "Strategist's Circlet",
     description: "Your messages to teammates can be twice as long.",
     stats: {},
+    flags: {},
+  },
+  {
+    slug: "bascinet",
+    slot: "helmet",
+    name: "Bascinet",
+    description: "+2 HP, +1 speed.",
+    stats: { hpBonus: 2, speedBonus: 1 },
+    flags: {},
+  },
+  {
+    slug: "berserker_mask",
+    slot: "helmet",
+    name: "Berserker Mask",
+    description: "+2 damage, −2 HP. Rage has a price.",
+    stats: { damage: 2, hpBonus: -2 },
     flags: {},
   },
   // Chest
@@ -137,6 +186,22 @@ export const CATALOG: Array<CatalogItem> = [
     stats: { moveBonus: 1 },
     flags: {},
   },
+  {
+    slug: "brigandine",
+    slot: "chest",
+    name: "Brigandine",
+    description: "+6 HP, −1 move.",
+    stats: { hpBonus: 6, moveBonus: -1 },
+    flags: {},
+  },
+  {
+    slug: "spiked_armor",
+    slot: "chest",
+    name: "Spiked Armor",
+    description: "+4 HP. Melee attackers take 1 damage.",
+    stats: { hpBonus: 4 },
+    flags: { thorns: true },
+  },
   // Boots
   {
     slug: "greaves",
@@ -169,6 +234,22 @@ export const CATALOG: Array<CatalogItem> = [
     description: "May cross 1 wall cell per move.",
     stats: {},
     flags: { crossesWalls: true },
+  },
+  {
+    slug: "heavy_sabatons",
+    slot: "boots",
+    name: "Heavy Sabatons",
+    description: "+3 HP, −1 move.",
+    stats: { hpBonus: 3, moveBonus: -1 },
+    flags: {},
+  },
+  {
+    slug: "scout_boots",
+    slot: "boots",
+    name: "Scout Boots",
+    description: "+1 move, +1 speed.",
+    stats: { moveBonus: 1, speedBonus: 1 },
+    flags: {},
   },
   // Actives (used instead of attacking; per-item cooldowns)
   {
@@ -211,6 +292,22 @@ export const CATALOG: Array<CatalogItem> = [
     stats: { damage: 3, range: 4, area: 3, cooldown: 4 },
     flags: { friendlyFire: true },
   },
+  {
+    slug: "shield_wall",
+    slot: "active",
+    name: "Shield Wall",
+    description: "Take −2 damage from every hit this round and the next. Cooldown 3.",
+    stats: { duration: 1, cooldown: 3 },
+    flags: {},
+  },
+  {
+    slug: "blink",
+    slot: "active",
+    name: "Blink",
+    description: "Teleport to a free cell within range 3, through walls. Cooldown 4.",
+    stats: { range: 3, cooldown: 4 },
+    flags: {},
+  },
   // Consumables (single-use; consuming is the turn's action)
   {
     slug: "health_potion",
@@ -235,6 +332,22 @@ export const CATALOG: Array<CatalogItem> = [
     description: "Range 3, 3 damage. Lobbed: no line of sight needed.",
     stats: { damage: 3, range: 3 },
     flags: {},
+  },
+  {
+    slug: "smoke_vial",
+    slot: "consumable",
+    name: "Smoke Vial",
+    description: "Range 3: a 3×3 area blocks line of sight for 1 round.",
+    stats: { range: 3, area: 3, duration: 1 },
+    flags: {},
+  },
+  {
+    slug: "bomb",
+    slot: "consumable",
+    name: "Bomb",
+    description: "Range 3: deal 2 damage in a 3×3 area. Hits allies too.",
+    stats: { damage: 2, range: 3, area: 3 },
+    flags: { friendlyFire: true },
   },
   {
     slug: "antidote",

@@ -40,6 +40,11 @@ export const effectValidator = v.union(
     unitId: v.id("units"),
     expiresAfterRound: v.number(),
   }),
+  v.object({
+    kind: v.literal("shielded"),
+    unitId: v.id("units"),
+    expiresAfterRound: v.number(),
+  }),
   // Cloak's first-hit reduction already consumed this round.
   v.object({
     kind: v.literal("cloak_spent"),
@@ -92,6 +97,7 @@ export default defineSchema(
         needsLos: v.optional(v.boolean()),
         friendlyFire: v.optional(v.boolean()),
         crossesWalls: v.optional(v.boolean()),
+        thorns: v.optional(v.boolean()),
       }),
     })
       .index("by_slug", ["slug"])
