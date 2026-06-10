@@ -1,5 +1,6 @@
+import { useState } from "react";
 import type { Doc } from "../../convex/_generated/dataModel";
-import { resolveStats } from "../../convex/lib/engine";
+import { resolveStats, type ResolvedStats } from "../../convex/lib/engine";
 import type { CatalogItem } from "../../convex/lib/catalog";
 import { itemIcon, unitSprite } from "../lib/sprites";
 
@@ -27,7 +28,29 @@ export const MODEL_SUGGESTIONS = [
   "deepseek/deepseek-chat-v3.1",
 ];
 
-export const SLOTS = ["weapon", "helmet", "chest", "boots", "active"] as const;
+type GearSlot = "weapon" | "helmet" | "chest" | "boots" | "active";
+type AnySlot = GearSlot | "consumable";
+
+const SLOT_LABELS: Record<AnySlot, string> = {
+  weapon: "Weapon",
+  helmet: "Helmet",
+  chest: "Chest",
+  boots: "Boots",
+  active: "Ability",
+  consumable: "Consumables",
+};
+
+function toCatalogMap(items: Array<Doc<"items">>) {
+  return new Map(items.map((i) => [i.slug, i as unknown as CatalogItem]));
+}
+
+function safeStats(loadout: Loadout, items: Array<Doc<"items">>): ResolvedStats | null {
+  try {
+    return resolveStats(loadout, toCatalogMap(items));
+  } catch {
+    return null;
+  }
+}
 
 export default function UnitEditor({
   unit,
@@ -38,133 +61,287 @@ export default function UnitEditor({
   items: Array<Doc<"items">>;
   onChange: (patch: Partial<UnitDraft>) => void;
 }) {
-  const bySlot = (slot: string) => items.filter((i) => i.slot === slot);
+  const [activeSlot, setActiveSlot] = useState<AnySlot>("weapon");
+  const [hovered, setHovered] = useState<Doc<"items"> | null>(null);
+
+  const stats = safeStats(unit.loadout, items);
+  // Preview: stats if the hovered item were equipped.
+  const previewStats =
+    hovered && hovered.slot !== "consumable"
+      ? safeStats({ ...unit.loadout, [hovered.slot]: hovered.slug }, items)
+      : null;
 
   function updateLoadout(patch: Partial<Loadout>) {
     onChange({ loadout: { ...unit.loadout, ...patch } });
   }
 
+  function equip(item: Doc<"items">) {
+    if (item.slot === "consumable") {
+      const has = unit.loadout.consumables.includes(item.slug);
+      const next = has
+        ? unit.loadout.consumables.filter((s) => s !== item.slug)
+        : [...unit.loadout.consumables, item.slug].slice(-2);
+      updateLoadout({ consumables: next });
+    } else {
+      updateLoadout({ [item.slot]: item.slug });
+    }
+  }
+
+  const slotItems = items.filter((i) => i.slot === activeSlot);
+  const detail = hovered ?? items.find((i) => i.slug === currentSlug(unit.loadout, activeSlot));
+
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <img
-          src={unitSprite(unit.loadout.weapon)}
-          alt=""
-          className="h-10 w-10"
-          style={{ imageRendering: "pixelated" }}
-        />
+    <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
+      {/* ── Left: the character ── */}
+      <div className="flex flex-col gap-4">
         <input
           value={unit.name}
           onChange={(e) => onChange({ name: e.target.value })}
           placeholder="Unit name"
-          className="min-w-0 flex-1 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-lg font-semibold outline-none focus:border-zinc-600"
+          className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-lg font-semibold outline-none focus:border-zinc-600"
         />
+
+        <Doll
+          loadout={unit.loadout}
+          activeSlot={activeSlot}
+          onSelectSlot={(s) => {
+            setActiveSlot(s);
+            setHovered(null);
+          }}
+        />
+
+        {stats && <StatBlock stats={stats} preview={previewStats} />}
+
+        <label className="flex flex-col gap-1 text-xs text-zinc-400">
+          Personality (this is the soul of your unit)
+          <textarea
+            value={unit.personality}
+            onChange={(e) => onChange({ personality: e.target.value })}
+            rows={4}
+            placeholder="The Arrogant Leader. Never retreats, claims every kill, blames Whisper for everything…"
+            className="resize-none rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-600"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-zinc-400">
+          Brain (OpenRouter model id)
+          <input
+            value={unit.model}
+            onChange={(e) => onChange({ model: e.target.value })}
+            list="model-suggestions"
+            className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 font-mono text-sm outline-none focus:border-zinc-600"
+          />
+        </label>
+        <datalist id="model-suggestions">
+          {MODEL_SUGGESTIONS.map((m) => (
+            <option key={m} value={m} />
+          ))}
+        </datalist>
       </div>
 
-      <StatsPreview loadout={unit.loadout} items={items} />
+      {/* ── Right: the item browser ── */}
+      <div className="flex min-h-0 flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-zinc-300">{SLOT_LABELS[activeSlot]}</h3>
+          {activeSlot === "consumable" && (
+            <span className="text-xs text-zinc-500 tabular-nums">
+              {unit.loadout.consumables.length}/2 equipped
+            </span>
+          )}
+        </div>
 
-      <label className="flex flex-col gap-1 text-xs text-zinc-400">
-        Personality (this is the soul of your unit)
-        <textarea
-          value={unit.personality}
-          onChange={(e) => onChange({ personality: e.target.value })}
-          rows={4}
-          className="resize-none rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-600"
-        />
-      </label>
-      <label className="flex flex-col gap-1 text-xs text-zinc-400">
-        Model (OpenRouter id)
-        <input
-          value={unit.model}
-          onChange={(e) => onChange({ model: e.target.value })}
-          list="model-suggestions"
-          className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 font-mono text-sm outline-none focus:border-zinc-600"
-        />
-      </label>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(56px,1fr))] gap-2">
+          {slotItems.map((item) => {
+            const equipped =
+              item.slot === "consumable"
+                ? unit.loadout.consumables.includes(item.slug)
+                : currentSlug(unit.loadout, activeSlot) === item.slug;
+            return (
+              <button
+                key={item.slug}
+                onClick={() => equip(item)}
+                onMouseEnter={() => setHovered(item)}
+                onMouseLeave={() => setHovered(null)}
+                className={`flex aspect-square items-center justify-center rounded-xl border transition-colors active:scale-[0.96] ${
+                  equipped
+                    ? "border-emerald-500/70 bg-emerald-500/10"
+                    : "border-zinc-800 bg-zinc-900/60 hover:border-zinc-600"
+                }`}
+                title={item.name}
+              >
+                <img src={itemIcon(item.slug)} alt={item.name} className="h-8 w-8 opacity-90" />
+              </button>
+            );
+          })}
+        </div>
 
-      {SLOTS.map((slot) => (
-        <label key={slot} className="flex flex-col gap-1 text-xs text-zinc-400">
-          {slot[0].toUpperCase() + slot.slice(1)}
-          <div className="flex items-center gap-2">
-            <img
-              src={itemIcon(unit.loadout[slot])}
-              alt=""
-              className="h-7 w-7 shrink-0 opacity-80"
-            />
-            <select
-              value={unit.loadout[slot]}
-              onChange={(e) => updateLoadout({ [slot]: e.target.value })}
-              className="min-w-0 flex-1 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-zinc-600"
-            >
-              {bySlot(slot).map((item) => (
-                <option key={item.slug} value={item.slug}>
-                  {item.name} — {item.description}
-                </option>
-              ))}
-            </select>
+        {/* item detail card */}
+        {detail && (
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+            <div className="flex items-center gap-3">
+              <img src={itemIcon(detail.slug)} alt="" className="h-9 w-9" />
+              <div>
+                <p className="font-semibold">{detail.name}</p>
+                <p className="text-xs text-zinc-500 capitalize">{detail.slot}</p>
+              </div>
+            </div>
+            <p className="mt-2 text-sm text-zinc-400" style={{ textWrap: "pretty" }}>
+              {detail.description}
+            </p>
           </div>
-        </label>
-      ))}
-
-      <fieldset className="flex flex-col gap-1 text-xs text-zinc-400">
-        Consumables (pick 2)
-        {bySlot("consumable").map((item) => {
-          const checked = unit.loadout.consumables.includes(item.slug);
-          return (
-            <label key={item.slug} className="flex items-center gap-2 text-sm text-zinc-300">
-              <input
-                type="checkbox"
-                checked={checked}
-                onChange={() => {
-                  const next = checked
-                    ? unit.loadout.consumables.filter((s) => s !== item.slug)
-                    : [...unit.loadout.consumables, item.slug].slice(-2);
-                  updateLoadout({ consumables: next });
-                }}
-              />
-              <img src={itemIcon(item.slug)} alt="" className="h-5 w-5 opacity-80" />
-              {item.name}
-            </label>
-          );
-        })}
-      </fieldset>
-
-      <datalist id="model-suggestions">
-        {MODEL_SUGGESTIONS.map((m) => (
-          <option key={m} value={m} />
-        ))}
-      </datalist>
+        )}
+      </div>
     </div>
   );
 }
 
-// Live stat preview computed by the real game engine.
-function StatsPreview({ loadout, items }: { loadout: Loadout; items: Array<Doc<"items">> }) {
-  let stats;
-  try {
-    const catalog = new Map(items.map((i) => [i.slug, i as unknown as CatalogItem]));
-    stats = resolveStats(loadout, catalog);
-  } catch {
-    return null;
-  }
-  const entries: Array<[string, string | number]> = [
-    ["HP", stats.maxHp],
-    ["Move", stats.move],
-    ["Speed", stats.speed],
-    ["Dmg", stats.damage],
-    ["Range", stats.attackRange],
+function currentSlug(loadout: Loadout, slot: AnySlot): string | undefined {
+  return slot === "consumable" ? undefined : loadout[slot];
+}
+
+// RPG-style equipment doll: slots arranged around the character sprite.
+function Doll({
+  loadout,
+  activeSlot,
+  onSelectSlot,
+}: {
+  loadout: Loadout;
+  activeSlot: AnySlot;
+  onSelectSlot: (slot: AnySlot) => void;
+}) {
+  const slot = (s: AnySlot, slug?: string) => (
+    <SlotButton
+      key={s}
+      slot={s}
+      slug={slug}
+      active={activeSlot === s}
+      onClick={() => onSelectSlot(s)}
+    />
+  );
+
+  return (
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
+      <div className="grid grid-cols-3 items-center justify-items-center gap-2">
+        <div />
+        {slot("helmet", loadout.helmet)}
+        <div />
+
+        {slot("weapon", loadout.weapon)}
+        <div className="flex h-24 w-24 items-center justify-center rounded-xl bg-zinc-950">
+          <img
+            src={unitSprite(loadout.weapon)}
+            alt=""
+            className="h-20 w-20"
+            style={{ imageRendering: "pixelated" }}
+          />
+        </div>
+        {slot("chest", loadout.chest)}
+
+        {slot("active", loadout.active)}
+        {slot("boots", loadout.boots)}
+        <ConsumablesSlot
+          slugs={loadout.consumables}
+          active={activeSlot === "consumable"}
+          onClick={() => onSelectSlot("consumable")}
+        />
+      </div>
+    </div>
+  );
+}
+
+function SlotButton({
+  slot,
+  slug,
+  active,
+  onClick,
+}: {
+  slot: AnySlot;
+  slug?: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex h-14 w-14 flex-col items-center justify-center gap-0.5 rounded-xl border transition-colors active:scale-[0.96] ${
+        active
+          ? "border-emerald-500/70 bg-emerald-500/10"
+          : "border-zinc-800 bg-zinc-950 hover:border-zinc-600"
+      }`}
+      title={SLOT_LABELS[slot]}
+    >
+      {slug ? (
+        <img src={itemIcon(slug)} alt="" className="h-7 w-7 opacity-90" />
+      ) : (
+        <span className="text-lg text-zinc-700">?</span>
+      )}
+      <span className="text-[0.55rem] text-zinc-500">{SLOT_LABELS[slot]}</span>
+    </button>
+  );
+}
+
+function ConsumablesSlot({
+  slugs,
+  active,
+  onClick,
+}: {
+  slugs: Array<string>;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex h-14 w-14 flex-col items-center justify-center gap-0.5 rounded-xl border transition-colors active:scale-[0.96] ${
+        active
+          ? "border-emerald-500/70 bg-emerald-500/10"
+          : "border-zinc-800 bg-zinc-950 hover:border-zinc-600"
+      }`}
+      title="Consumables"
+    >
+      <span className="flex gap-0.5">
+        {slugs.length > 0 ? (
+          slugs.map((s) => <img key={s} src={itemIcon(s)} alt="" className="h-5 w-5 opacity-90" />)
+        ) : (
+          <span className="text-lg text-zinc-700">?</span>
+        )}
+      </span>
+      <span className="text-[0.55rem] text-zinc-500">Items</span>
+    </button>
+  );
+}
+
+// Stat block with hover-preview deltas (video-game style green/red arrows).
+function StatBlock({ stats, preview }: { stats: ResolvedStats; preview: ResolvedStats | null }) {
+  const rows: Array<[string, number, number | undefined]> = [
+    ["HP", stats.maxHp, preview?.maxHp],
+    ["Move", stats.move, preview?.move],
+    ["Speed", stats.speed, preview?.speed],
+    ["Damage", stats.damage, preview?.damage],
+    ["Range", stats.attackRange, preview?.attackRange],
   ];
   return (
-    <div className="flex gap-2">
-      {entries.map(([label, value]) => (
-        <div
-          key={label}
-          className="flex-1 rounded-lg border border-zinc-800 bg-zinc-950 px-2 py-1.5 text-center"
-        >
-          <p className="text-[0.65rem] text-zinc-500">{label}</p>
-          <p className="font-mono text-sm font-semibold text-zinc-200 tabular-nums">{value}</p>
-        </div>
-      ))}
+    <div className="grid grid-cols-5 gap-1.5">
+      {rows.map(([label, value, next]) => {
+        const delta = next !== undefined ? next - value : 0;
+        return (
+          <div
+            key={label}
+            className="rounded-lg border border-zinc-800 bg-zinc-950 px-1.5 py-1.5 text-center"
+          >
+            <p className="text-[0.6rem] text-zinc-500">{label}</p>
+            <p className="font-mono text-sm font-semibold text-zinc-200 tabular-nums">
+              {next !== undefined && delta !== 0 ? next : value}
+            </p>
+            <p
+              className={`h-3 font-mono text-[0.6rem] tabular-nums ${
+                delta > 0 ? "text-emerald-400" : delta < 0 ? "text-red-400" : "text-transparent"
+              }`}
+            >
+              {delta > 0 ? `▲${delta}` : delta < 0 ? `▼${-delta}` : "·"}
+            </p>
+          </div>
+        );
+      })}
     </div>
   );
 }

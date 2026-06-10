@@ -116,7 +116,30 @@ function DashboardInner() {
         <UserButton />
       </header>
 
-      <div className={`grid gap-8 ${editing ? "lg:grid-cols-[1fr_380px]" : ""}`}>
+      {editing ? (
+        <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+          <div className="mb-5 flex items-center justify-between">
+            <h2 className="font-semibold">{editing === "new" ? "New unit" : "Edit unit"}</h2>
+            <button
+              onClick={() => setEditing(null)}
+              className="text-sm text-zinc-500 hover:text-zinc-300"
+            >
+              ← Back to roster
+            </button>
+          </div>
+          <UnitEditor unit={draft} items={items} onChange={(p) => setDraft({ ...draft, ...p })} />
+          <div className="mt-5 flex items-center gap-3">
+            <button
+              onClick={onSave}
+              disabled={busy}
+              className="rounded-lg bg-emerald-600 px-6 py-2.5 font-semibold text-white transition-colors hover:bg-emerald-500 active:scale-[0.96] disabled:opacity-50"
+            >
+              {editing === "new" ? "Create unit" : "Save changes"}
+            </button>
+            {error && <p className="text-sm text-red-400">{error}</p>}
+          </div>
+        </section>
+      ) : (
         <section>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <button
@@ -189,30 +212,7 @@ function DashboardInner() {
             </p>
           )}
         </section>
-
-        {editing && (
-          <aside className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-semibold">{editing === "new" ? "New unit" : "Edit unit"}</h2>
-              <button
-                onClick={() => setEditing(null)}
-                className="text-sm text-zinc-500 hover:text-zinc-300"
-              >
-                Close
-              </button>
-            </div>
-            <UnitEditor unit={draft} items={items} onChange={(p) => setDraft({ ...draft, ...p })} />
-            <button
-              onClick={onSave}
-              disabled={busy}
-              className="mt-4 w-full rounded-lg bg-emerald-600 px-4 py-2.5 font-semibold text-white transition-colors hover:bg-emerald-500 active:scale-[0.96] disabled:opacity-50"
-            >
-              {editing === "new" ? "Create unit" : "Save changes"}
-            </button>
-            {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
-          </aside>
-        )}
-      </div>
+      )}
     </main>
   );
 }
