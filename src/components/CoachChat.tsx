@@ -69,7 +69,7 @@ export default function CoachChat({
   onUsePersonality: (text: string) => void;
   onApplyBuild: (build: ProposedBuild) => void;
 }) {
-  const [model, setModel] = useState("google/gemini-2.5-flash");
+  const [model, setModel] = useState("deepseek/deepseek-v4-flash");
   const [applied, setApplied] = useState<string | null>(null);
 
   const transport = useMemo(

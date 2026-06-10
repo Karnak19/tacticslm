@@ -25,11 +25,12 @@ type OpenRouterModel = {
 };
 
 const RECOMMENDED = [
-  "google/gemini-2.5-flash",
-  "anthropic/claude-haiku-4.5",
+  "deepseek/deepseek-v4-flash",
+  "deepseek/deepseek-v4-pro",
   "anthropic/claude-sonnet-4.6",
-  "openai/gpt-5-mini",
-  "deepseek/deepseek-chat-v3.1",
+  "google/gemini-3.5-flash",
+  "z-ai/glm-5.1",
+  "openai/gpt-5.5",
 ];
 
 // models.dev logo slugs for common OpenRouter provider prefixes.

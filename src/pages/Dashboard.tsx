@@ -10,7 +10,7 @@ import { itemIcon, skinSprite } from "../lib/sprites";
 const NEW_UNIT: UnitDraft = {
   name: "New Unit",
   personality: "",
-  model: "google/gemini-2.5-flash",
+  model: "deepseek/deepseek-v4-flash",
   loadout: {
     weapon: "sword",
     helmet: "great_helm",
