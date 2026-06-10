@@ -98,7 +98,7 @@ export default function ModelPicker({
           <ChevronsUpDownIcon className="size-3.5 shrink-0 text-zinc-500" />
         </button>
       </ModelSelectorTrigger>
-      <ModelSelectorContent title="Pick a brain">
+      <ModelSelectorContent title="Pick a brain" className="sm:max-w-2xl">
         <ModelSelectorInput placeholder="Search models…" />
         <ModelSelectorList>
           <ModelSelectorEmpty>No model found.</ModelSelectorEmpty>
