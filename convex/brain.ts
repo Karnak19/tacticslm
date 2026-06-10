@@ -88,7 +88,7 @@ type DbAction =
 const DecisionSchema = z.object({
   thinking: z
     .string()
-    .describe("Brief tactical reasoning, in character. Shown in the post-match replay."),
+    .describe("Your tactical reasoning, in character — 2 or 3 sentences MAX. Shown in the post-match replay."),
   moveTo: z
     .object({ x: z.number().int(), y: z.number().int() })
     .nullish()
@@ -277,7 +277,9 @@ export const act = action({
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 90000);
         const result = await generateText({
-          model: openrouter.chat(ctxData.unit.model),
+          model: openrouter.chat(ctxData.unit.model, {
+            reasoning: { effort: "low", exclude: true },
+          }),
           output: Output.object({ schema: DecisionSchema }),
           system,
           messages,
