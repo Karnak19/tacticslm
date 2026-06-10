@@ -3,7 +3,7 @@ import { httpAction } from "./_generated/server";
 import { convertToModelMessages, streamText, tool, type UIMessage } from "ai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { z } from "zod";
-import { BASE_STATS, CATALOG } from "./lib/catalog";
+import { BASE_STATS, CATALOG, GRID_SIZE, TURN_CAP } from "./lib/catalog";
 
 const slugsBySlot = (slot: string) =>
   CATALOG.filter((i) => i.slot === slot).map((i) => i.slug) as [string, ...Array<string>];
@@ -42,11 +42,11 @@ const ITEM_SHEET = (["weapon", "helmet", "chest", "boots", "active", "consumable
 const COACH_SYSTEM = `You are a squad-building coach for TacticsLM, a 3v3 AI-vs-AI tactical grid game. The user designs units: each unit has a PERSONALITY PROMPT (the soul — it drives an autonomous LLM in battle), a gear loadout, and an LLM model choice.
 
 GAME RULES:
-- 12×12 grid with walls. Turn-based, initiative ordered by speed (higher acts first).
+- ${GRID_SIZE}×${GRID_SIZE} grid with walls. Turn-based, initiative ordered by speed (higher acts first).
 - Each unit is an independent LLM. Teammates coordinate ONLY by short chat messages spoken on their turns — misunderstandings are part of the game.
 - A turn = optional move + one action (attack / active ability / consumable / wait).
 - Base stats before gear: ${BASE_STATS.hp} HP, ${BASE_STATS.move} move, ${BASE_STATS.speed} speed. No innate attack — the weapon defines it.
-- Win by elimination, or highest team HP at round 20.
+- Win by elimination, or highest team HP at round ${TURN_CAP}.
 
 ITEM CATALOG:
 ${ITEM_SHEET}
