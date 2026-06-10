@@ -101,6 +101,8 @@ export default function MatchView({ room }: { room: Doc<"rooms"> }) {
         )}
       </header>
 
+      <TurnOrder match={match} unitById={unitById} />
+
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <Board
           match={match}
@@ -112,6 +114,71 @@ export default function MatchView({ room }: { room: Doc<"rooms"> }) {
         <SidePanel match={match} unitById={unitById} />
       </div>
     </main>
+  );
+}
+
+// Horizontal initiative tracker: who plays now, who's next.
+function TurnOrder({
+  match,
+  unitById,
+}: {
+  match: Doc<"matches">;
+  unitById: Map<string, Doc<"units">>;
+}) {
+  if (match.status !== "running") return null;
+  const n = match.initiative.length;
+  // Rotate so the current unit comes first, preserving turn order.
+  const order = Array.from(
+    { length: n },
+    (_, i) => match.initiative[(match.initiativeIndex + i) % n],
+  );
+  return (
+    <div className="mb-4 flex items-center gap-2 overflow-x-auto">
+      <span className="mr-1 shrink-0 text-[10px] tracking-wide text-zinc-500 uppercase">
+        Turn order
+      </span>
+      {order.map((id, i) => {
+        const u = unitById.get(id);
+        if (!u) return null;
+        const isCurrent = i === 0 && u.alive;
+        return (
+          <motion.div
+            key={id}
+            layout
+            transition={{ type: "spring", duration: 0.5, bounce: 0 }}
+            className={`flex shrink-0 items-center gap-1.5 rounded-full border py-1 pr-3 pl-1 ${
+              !u.alive
+                ? "border-zinc-900 opacity-35 grayscale"
+                : isCurrent
+                  ? "border-amber-400/60 bg-amber-400/10"
+                  : "border-zinc-800 bg-zinc-900/60"
+            }`}
+            title={`${u.name} — ${u.alive ? `${u.hp} HP` : "eliminated"}`}
+          >
+            <span
+              className={`flex h-6 w-6 items-center justify-center rounded-full ${
+                u.team === "a" ? "bg-sky-500/30" : "bg-rose-500/30"
+              }`}
+            >
+              <img
+                src={skinSprite(u.skin, u.loadout.weapon)}
+                alt=""
+                className="h-5 w-5"
+                style={{ imageRendering: "pixelated" }}
+              />
+            </span>
+            <span
+              className={`text-xs ${isCurrent ? "font-semibold text-amber-300" : "text-zinc-300"}`}
+            >
+              {u.name}
+            </span>
+            {isCurrent && (
+              <span className="ml-0.5 size-1.5 animate-pulse rounded-full bg-amber-400" />
+            )}
+          </motion.div>
+        );
+      })}
+    </div>
   );
 }
 
