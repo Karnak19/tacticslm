@@ -9,7 +9,7 @@ import { ensureUser, requireUser } from "./lib/auth";
 
 const UNITS_PER_TEAM = 3;
 
-function randomCode(): string {
+export function randomCode(): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
   for (let i = 0; i < 6; i++) {
@@ -165,19 +165,28 @@ export const setReady = mutation({
   },
 });
 
-async function startMatch(ctx: MutationCtx, roomId: Id<"rooms">): Promise<void> {
+// The single start path: spawns both squads, computes initiative, inserts the
+// match and flips the room to `active`. `setReady` calls it when both players
+// are ready; `dev:seedMatch` calls it too, so the dev harness produces state
+// identical in shape to a real match.
+export async function startMatch(
+  ctx: MutationCtx,
+  roomId: Id<"rooms">,
+  opts?: { gridSize?: number; seed?: number },
+): Promise<Id<"matches">> {
+  const gridSize = opts?.gridSize ?? GRID_SIZE;
   const units = await ctx.db
     .query("units")
     .withIndex("by_room", (q) => q.eq("roomId", roomId))
     .collect();
   const catalog = await toCatalog(ctx);
 
-  const seed = Math.floor(Math.random() * 2 ** 31);
-  const walls = generateWalls(seed, GRID_SIZE);
-  const rows = spawnRows(GRID_SIZE);
+  const seed = opts?.seed ?? Math.floor(Math.random() * 2 ** 31);
+  const walls = generateWalls(seed, gridSize);
+  const rows = spawnRows(gridSize);
 
   // Spread each team across its spawn band.
-  const spawnXs = [1, 2, 3].map((i) => Math.round((GRID_SIZE * i) / 4));
+  const spawnXs = [1, 2, 3].map((i) => Math.round((gridSize * i) / 4));
   const byTeam = { a: units.filter((u) => u.team === "a"), b: units.filter((u) => u.team === "b") };
   for (const team of ["a", "b"] as const) {
     for (let i = 0; i < byTeam[team].length; i++) {
@@ -200,11 +209,11 @@ async function startMatch(ctx: MutationCtx, roomId: Id<"rooms">): Promise<void> 
     .collect();
   const initiative = computeInitiative(refreshed.map(toEngineUnit), catalog) as Array<Id<"units">>;
 
-  await ctx.db.insert("matches", {
+  const matchId = await ctx.db.insert("matches", {
     roomId,
     status: "running",
     walls,
-    gridSize: GRID_SIZE,
+    gridSize,
     turnNumber: 0,
     roundNumber: 1,
     turnCap: TURN_CAP,
@@ -214,6 +223,7 @@ async function startMatch(ctx: MutationCtx, roomId: Id<"rooms">): Promise<void> 
     effects: [],
   });
   await ctx.db.patch(roomId, { status: "active" });
+  return matchId;
 }
 
 // Lobby state for the room screen.
