@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { CATALOG } from "../convex/lib/catalog";
+import { CATALOG } from "../shared/catalog";
 import {
   checkWin,
   computeInitiative,
@@ -14,7 +14,7 @@ import {
   resolveStats,
   resolveTurn,
   type Snapshot,
-} from "../convex/lib/engine";
+} from "../shared/engine";
 
 const catalog = new Map(CATALOG.map((i) => [i.slug, i]));
 
