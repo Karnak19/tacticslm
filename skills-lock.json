@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "drizzle": {
+      "source": "bobmatnyc/claude-mpm-skills",
+      "sourceType": "github",
+      "skillPath": "toolchains/typescript/data/drizzle/SKILL.md",
+      "computedHash": "1833b9288692060090de3e8ca1e772b5e3bbf928c9d44a20bb4d5b6766b019f2"
+    },
+    "drizzle-migrations": {
+      "source": "bobmatnyc/claude-mpm-skills",
+      "sourceType": "github",
+      "skillPath": "toolchains/typescript/data/drizzle-migrations/SKILL.md",
+      "computedHash": "4a71e255385519e16d9661d56f344e7275e222ea0d1c9ddcbcf330dc65595260"
+    }
+  }
+}
