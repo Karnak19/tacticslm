@@ -367,10 +367,12 @@ describe("teamMessages / replay secrecy", () => {
     expect(finished.messages.map((m) => m.text).sort()).toEqual(["team a plan", "team b plan"]);
   });
 
-  test("replay withholds each unit's reasoning until the match is finished", async () => {
-    // `thinking` is the acting unit's plan, so it sits inside the same boundary as
-    // team chat. Gating only the client's render would leave it readable here and
-    // in the match:turn frame.
+  test("replay carries each unit's reasoning while the match is still running", async () => {
+    // Deliberate: reasoning is the spectacle, and it is not a secret. No unit's
+    // prompt reads another unit's thinking (readTurnContext feeds each model only
+    // its own team's chat), and a human cannot act on it because applyTurn is
+    // reachable only from the brain. Team chat is the thing that stays gated —
+    // asserted in the test above.
     const unit = currentUnit(h.db, seeded.matchId)!;
     await applyTurn(h.db, {
       matchId: seeded.matchId,
@@ -381,16 +383,11 @@ describe("teamMessages / replay secrecy", () => {
 
     const running = replay(h.db, seeded.matchId)!;
     expect(running.match.status).toBe("running");
-    expect(running.turns.length).toBeGreaterThan(0);
-    expect(running.turns.every((t) => t.thinking === null)).toBe(true);
-
-    const alice = getUser(h.db, seeded.userA);
-    await forfeit(h.db, alice, seeded.matchId);
-
-    const finished = replay(h.db, seeded.matchId)!;
-    expect(finished.turns.some((t) => t.thinking === "flank left, then focus their sniper")).toBe(
+    expect(running.turns.some((t) => t.thinking === "flank left, then focus their sniper")).toBe(
       true,
     );
+    // ...while chat from the same turn is still withheld.
+    expect(running.messages).toEqual([]);
   });
 });
 

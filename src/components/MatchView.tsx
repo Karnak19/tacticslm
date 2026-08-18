@@ -281,7 +281,9 @@ function SidePanel({
           {turns.map((t) => (
             <div key={t._id}>
               <p>{t.summary}</p>
-              {finished && t.thinking && (
+              {/* Live, not gated on `finished`: watching the brains reason is the
+                  point of the game. Not a leak either — see broadcastTurn. */}
+              {t.thinking && (
                 <p className="mt-0.5 text-zinc-500 italic">
                   {unitById.get(t.unitId)?.name}: “{t.thinking}”
                 </p>

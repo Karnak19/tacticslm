@@ -56,9 +56,10 @@ export type RoomEvent =
   | { type: "lobby:update"; roomId: string; room: Room; players: Array<LobbyPlayer> }
   | { type: "match:start"; roomId: string; matchId: string; match: Match; units: Array<Unit> }
   | { type: "match:state"; roomId: string; matchId: string; match: Match; units: Array<Unit> }
-  // `turn.thinking` is null while the match is running — the acting unit's plan
-  // is inside the secrecy boundary and is only revealed once the match is
-  // `finished`. See `withoutThinking` in services/matches.ts.
+  // Carries `turn.thinking` live, on purpose: three brains reasoning aloud about
+  // one board is the product. It is not inside the secrecy boundary — no prompt
+  // reads another unit's reasoning, and a human takes no turns. Team chat IS
+  // inside it, which is what publishTeam below exists for.
   | { type: "match:turn"; roomId: string; matchId: string; turn: Turn }
   | {
       type: "match:finished";
