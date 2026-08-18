@@ -18,17 +18,17 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          # Pinned, not `latest`: the lockfile is frozen, so floating the runtime
+          # that reads it just moves the drift. A bun release should not be able to
+          # flip a green check on an unrelated PR.
+          bun-version: "1.3.13"
 
       - run: bun install --frozen-lockfile
 
-      # Typecheck, lint, tests, then build. The build is last and is the real
-      # bar: tsc and oxlint can both pass while `vite build` fails.
-      - run: bunx tsc -b
+      # `bun run build` is `tsc -b && vite build`, so it owns the typecheck and is
+      # the acceptance bar — lint and tsc can both pass while `vite build` fails.
+      # The engine self-checks are part of `bun test`; they are what proves a rules
+      # change did not quietly alter combat resolution.
       - run: bunx oxlint .
       - run: bun test
       - run: bun run build
-
-      # The engine self-checks. Cheap, and they are what proves a rules change
-      # did not quietly alter combat resolution.
-      - run: bun test tests/engine.test.ts
