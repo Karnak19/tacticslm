@@ -1,10 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { useMutation } from "convex/react";
-import { SignInButton } from "@clerk/clerk-react";
-import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
-import { api } from "../../convex/_generated/api";
+import { ClerkLoading, SignedIn, SignedOut, SignInButton } from "@clerk/clerk-react";
+import { api, unwrap } from "../lib/eden";
 import { getApiKey } from "../lib/session";
 import { floorTile, itemIcon, skinSprite, WALL_TILE } from "../lib/sprites";
 
@@ -83,10 +81,10 @@ function Hero() {
 function PlayPanel() {
   return (
     <>
-      <AuthLoading>
+      <ClerkLoading>
         <div className="h-12 w-64 animate-pulse rounded-xl bg-zinc-900" />
-      </AuthLoading>
-      <Unauthenticated>
+      </ClerkLoading>
+      <SignedOut>
         <div className="flex flex-wrap items-center gap-4">
           <SignInButton mode="modal">
             <button className="rounded-xl bg-emerald-600 px-6 py-3 font-semibold text-white shadow-lg shadow-emerald-600/20 transition-colors hover:bg-emerald-500 active:scale-[0.96]">
@@ -95,17 +93,16 @@ function PlayPanel() {
           </SignInButton>
           <span className="text-sm text-zinc-500">Free — you bring an OpenRouter key.</span>
         </div>
-      </Unauthenticated>
-      <Authenticated>
+      </SignedOut>
+      <SignedIn>
         <PlayForm />
-      </Authenticated>
+      </SignedIn>
     </>
   );
 }
 
 function PlayForm() {
   const navigate = useNavigate();
-  const createRoom = useMutation(api.rooms.create);
   const [joinCode, setJoinCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -123,7 +120,7 @@ function PlayForm() {
     if (!validate()) return;
     setBusy(true);
     try {
-      const { code } = await createRoom({});
+      const { code } = unwrap(await api.api.rooms.post());
       navigate(`/room/${code}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -427,7 +424,7 @@ function Footer() {
         >
           game-icons.net
         </a>{" "}
-        (CC BY 3.0) · Built with Convex + React ·{" "}
+        (CC BY 3.0) · Built with Elysia + React ·{" "}
         <a
           href="https://github.com/Karnak19/tacticslm"
           target="_blank"

@@ -22,3 +22,22 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# CraftPix art: licensed for use, not for redistribution. Restore with
+# `bash scripts/setup-assets.sh`; see public/sprites/craftpix/README.md.
+public/sprites/craftpix/*
+!public/sprites/craftpix/README.md
+
+# SQLite database
+/data/
+
+# Throwaway migration spikes (proof-of-concept only; findings are documented in
+# code comments under server/). spike-ai/ carries its own node_modules.
+/spike/
+/spike-ai/
+/spike-fullstack/
+
+# AI SDK DevTools recordings: dev-only, and plain-text prompts and responses.
+# @ai-sdk/devtools appends this line itself on first capture; it is written out
+# here so the repo never depends on that happening.
+.devtools/

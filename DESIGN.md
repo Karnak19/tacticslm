@@ -32,7 +32,7 @@ its loadout, then watch their squad fight.
 ## Comms
 
 - No separate huddle phase in v1: a unit **speaks on its turn**, alongside its action.
-- Messages are visible to **teammates only** — stored in Convex, but the serving query
+- Messages are visible to **teammates only** — stored in SQLite, but the serving query
   filters by team so the opponent's client never receives them.
 - Enemy messages are **revealed in the post-match replay** (reading the enemy huddle
   after the match is a feature).
@@ -127,33 +127,36 @@ its loadout, then watch their squad fight.
 ## Match flow
 
 - **Room-based 1v1** (3 units each): create room → share code/link with a friend →
-  both lock in squads → match runs → both spectate live (Convex reactive queries).
+  both lock in squads → match runs → both spectate live (server pushes over a WebSocket).
 - **Win condition:** elimination, or most total team HP at the round cap (10 rounds — matches target 3–5 minutes).
 
 ## Auth & accounts
 
-- **Clerk** auth (Convex integration via `ConvexProviderWithClerk`); sign-in required
-  to play. Identity checked server-side with `ctx.auth.getUserIdentity()` everywhere —
+- **Clerk** auth; sign-in required to play. The Clerk session token travels as a
+  bearer token and is verified server-side in `server/auth.ts` on every request —
   the old anonymous localStorage token is gone.
-- `users` table maps Clerk ids to app users (auto-created on first mutation).
+- `users` table maps Clerk ids to app users (auto-created on the first authenticated
+  request).
 - **Roster**: `rosterUnits` table stores saved unit builds per user (name, personality,
   model, loadout) — reusable across rooms via load/save in the squad builder.
-- Env: `VITE_CLERK_PUBLISHABLE_KEY` (frontend), `CLERK_JWT_ISSUER_DOMAIN` (Convex).
+- Env: `VITE_CLERK_PUBLISHABLE_KEY` (frontend), `CLERK_SECRET_KEY` (server),
+  `ADMIN_TOKEN` (dev harness routes only).
 
 ## LLM economics & architecture
 
 - Users bring their own **OpenRouter key**, like PokerLM.
 - **Key is never stored server-side** (leak prevention): lives in localStorage and is
-  passed per-call to the brain action; it only transits, it is never written to the DB.
+  passed per-call to the brain route; it only transits, it is never written to the DB.
 - **All LLM calls go through the backend** (PokerLM pattern, anti-cheat): the client
-  calls the `brain.act` Convex action with `{matchId, apiKey}`. The action
-  builds the prompt server-side from a consistent snapshot (reachable cells, LoS,
+  posts `{matchId, apiKey}` to `POST /api/brain/act`. The server
+  builds the prompt from a consistent snapshot (reachable cells, LoS,
   team chat — the client never sees the prompt), calls OpenRouter (AI SDK +
   structured output), retries up to 2× feeding rejection reasons back to the model,
   and falls back to `wait` so a confused model can't stall the match.
-- `matches.applyTurn` is an **internal** mutation — the brain action is the only way
-  to take a turn, so players cannot hand-craft actions (improvement over PokerLM,
-  where the submit mutation is public).
+- `applyTurn` in `server/services/matches.ts` is reachable only from
+  `server/services/brain.ts` — no route exposes it, so players cannot hand-craft
+  actions (improvement over PokerLM, where the submit mutation is public). The
+  rule is enforced by `server/services/applyTurn-boundary.test.ts`.
 - Both players must keep a tab open during the match (their client triggers their
   own units' turns; fine for room-based play).
 - Model choice per unit is itself a strategic lever (fast cheap vs slow smart).
@@ -162,11 +165,14 @@ its loadout, then watch their squad fight.
 ## Tech stack
 
 - React 19 (Vite SPA) + Tailwind v4 + Motion, bun, oxlint/oxfmt
-- Convex: game state, rooms, turn loop mutations, replays (every turn is a row)
+- Elysia on Bun + SQLite (Drizzle): game state, rooms, turn loop, replays (every
+  turn is a row); live updates over a WebSocket
+- Dev commands: `bun run dev` (app + server), `bun run play` (match harness),
+  `bun run db:migrate` (schema), `bun run devtools` (recorded LLM calls)
 
 ## Build order
 
-1. Convex schema (rooms, players, units, items, turns, messages)
+1. Schema (rooms, players, units, turns, messages) in `shared/schema.ts`
 2. Deterministic engine (grid gen, reachability/A\*, LoS, action resolution)
 3. Turn loop (client brain-runner + server validation)
 4. UI (lobby/room, squad builder, live match view, replay)

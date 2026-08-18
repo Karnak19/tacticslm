@@ -1,34 +1,52 @@
-import { useState } from "react";
+// Squad picking. The lobby roster it renders is pushed by the room socket
+// (`lobby:update`), so the opponent appearing and readying shows up here without
+// this component subscribing to anything — `src/pages/Room.tsx` owns the socket
+// and hands the players down.
+//
+// The player's own unit roster is a one-shot HTTP read: it is their saved units,
+// edited on the dashboard, and nothing in a lobby changes it.
+
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { useMutation, useQuery } from "convex/react";
-import { api } from "../../convex/_generated/api";
-import type { Doc, Id } from "../../convex/_generated/dataModel";
+import type { Room, RosterUnit } from "../../shared/types";
+import type { LobbyPlayer } from "../hooks/useRoomSocket";
+import { api, unwrap } from "../lib/eden";
 import { itemIcon, skinSprite } from "../lib/sprites";
 
 const SQUAD_SIZE = 3;
 
-type LobbyData = {
-  room: Doc<"rooms">;
-  players: Array<{
-    _id: Id<"players">;
-    name: string;
-    team: "a" | "b";
-    ready: boolean;
-    unitCount: number;
-  }>;
-};
-
-export default function SquadBuilder({ room, lobby }: { room: Doc<"rooms">; lobby: LobbyData }) {
-  const roster = useQuery(api.roster.list);
-  const setSquad = useMutation(api.rooms.setSquad);
-  const setReady = useMutation(api.rooms.setReady);
-  const [selected, setSelected] = useState<Array<Id<"rosterUnits">>>([]);
+export default function SquadBuilder({
+  room,
+  players,
+}: {
+  room: Room;
+  players: Array<LobbyPlayer>;
+}) {
+  const [roster, setRoster] = useState<Array<RosterUnit> | null>(null);
+  const [selected, setSelected] = useState<Array<string>>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    let cancelled = false;
+    api.api.roster
+      .get()
+      .then((result) => {
+        if (!cancelled) setRoster(unwrap(result));
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        setRoster([]);
+        setError(e instanceof Error ? e.message : String(e));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   if (!roster) return <p className="p-8 text-zinc-400">Loading roster…</p>;
 
-  function toggle(id: Id<"rosterUnits">) {
+  function toggle(id: string) {
     setSelected((prev) =>
       prev.includes(id)
         ? prev.filter((s) => s !== id)
@@ -42,8 +60,10 @@ export default function SquadBuilder({ room, lobby }: { room: Doc<"rooms">; lobb
     setError(null);
     setBusy(true);
     try {
-      await setSquad({ roomId: room._id, rosterUnitIds: selected });
-      await setReady({ roomId: room._id, ready: true });
+      unwrap(await api.api.rooms({ id: room._id }).squad.post({ rosterUnitIds: selected }));
+      // The `match:start` frame that follows is what moves this screen on; the
+      // returned match id is not needed here.
+      unwrap(await api.api.rooms({ id: room._id }).ready.post({ ready: true }));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -63,13 +83,13 @@ export default function SquadBuilder({ room, lobby }: { room: Doc<"rooms">; lobb
           </p>
         </div>
         <div className="text-right text-sm">
-          {lobby.players.map((p) => (
+          {players.map((p) => (
             <p key={p._id} className={p.ready ? "text-emerald-400" : "text-zinc-400"}>
               {p.name} (team {p.team}){" "}
               {p.ready ? "— ready" : p.unitCount > 0 ? "— squad locked" : "— picking"}
             </p>
           ))}
-          {lobby.players.length < 2 && <p className="text-zinc-500">Waiting for opponent…</p>}
+          {players.length < 2 && <p className="text-zinc-500">Waiting for opponent…</p>}
         </div>
       </header>
 
@@ -108,7 +128,7 @@ export default function SquadBuilder({ room, lobby }: { room: Doc<"rooms">; lobb
                 )}
                 <div className="flex items-center gap-3">
                   <img
-                    src={skinSprite(unit.skin, unit.loadout.weapon)}
+                    src={skinSprite(unit.skin ?? undefined, unit.loadout.weapon)}
                     alt=""
                     className="h-10 w-10"
                     style={{ imageRendering: "pixelated" }}

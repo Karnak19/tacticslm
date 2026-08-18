@@ -1,7 +1,6 @@
 import { useState } from "react";
-import type { Doc } from "../../convex/_generated/dataModel";
-import { resolveStats, type ResolvedStats } from "../../convex/lib/engine";
-import type { CatalogItem } from "../../convex/lib/catalog";
+import { CATALOG, type CatalogItem } from "../../shared/catalog";
+import { type Catalog, resolveStats, type ResolvedStats } from "../../shared/engine";
 import { itemIcon, SKINS, skinSprite } from "../lib/sprites";
 import ModelPicker from "./ModelPicker";
 import CoachChat, { type ProposedBuild } from "./CoachChat";
@@ -36,13 +35,13 @@ const SLOT_LABELS: Record<AnySlot, string> = {
   skin: "Skin",
 };
 
-function toCatalogMap(items: Array<Doc<"items">>) {
-  return new Map(items.map((i) => [i.slug, i as unknown as CatalogItem]));
-}
+// The catalog is a constant now (the `items` table was dropped), so the map is
+// built once at module load rather than per render.
+const CATALOG_MAP: Catalog = new Map(CATALOG.map((i) => [i.slug, i]));
 
-function safeStats(loadout: Loadout, items: Array<Doc<"items">>): ResolvedStats | null {
+function safeStats(loadout: Loadout): ResolvedStats | null {
   try {
-    return resolveStats(loadout, toCatalogMap(items));
+    return resolveStats(loadout, CATALOG_MAP);
   } catch {
     return null;
   }
@@ -50,28 +49,26 @@ function safeStats(loadout: Loadout, items: Array<Doc<"items">>): ResolvedStats 
 
 export default function UnitEditor({
   unit,
-  items,
   onChange,
 }: {
   unit: UnitDraft;
-  items: Array<Doc<"items">>;
   onChange: (patch: Partial<UnitDraft>) => void;
 }) {
   const [activeSlot, setActiveSlot] = useState<AnySlot>("weapon");
-  const [hovered, setHovered] = useState<Doc<"items"> | null>(null);
+  const [hovered, setHovered] = useState<CatalogItem | null>(null);
 
-  const stats = safeStats(unit.loadout, items);
+  const stats = safeStats(unit.loadout);
   // Preview: stats if the hovered item were equipped.
   const previewStats =
     hovered && hovered.slot !== "consumable"
-      ? safeStats({ ...unit.loadout, [hovered.slot]: hovered.slug }, items)
+      ? safeStats({ ...unit.loadout, [hovered.slot]: hovered.slug })
       : null;
 
   function updateLoadout(patch: Partial<Loadout>) {
     onChange({ loadout: { ...unit.loadout, ...patch } });
   }
 
-  function equip(item: Doc<"items">) {
+  function equip(item: CatalogItem) {
     if (item.slot === "consumable") {
       const has = unit.loadout.consumables.includes(item.slug);
       const next = has
@@ -142,34 +139,28 @@ export default function UnitEditor({
               )}
             </div>
             <div className="grid grid-cols-[repeat(auto-fill,minmax(56px,1fr))] gap-2">
-              {items
-                .filter((i) => i.slot === slot)
-                .map((item) => {
-                  const equipped =
-                    item.slot === "consumable"
-                      ? unit.loadout.consumables.includes(item.slug)
-                      : currentSlug(unit.loadout, item.slot as AnySlot) === item.slug;
-                  return (
-                    <button
-                      key={item.slug}
-                      onClick={() => equip(item)}
-                      onMouseEnter={() => setHovered(item)}
-                      onMouseLeave={() => setHovered(null)}
-                      className={`flex aspect-square items-center justify-center rounded-xl border transition-colors active:scale-[0.96] ${
-                        equipped
-                          ? "border-emerald-500/70 bg-emerald-500/10"
-                          : "border-zinc-800 bg-zinc-900/60 hover:border-zinc-600"
-                      }`}
-                      title={item.name}
-                    >
-                      <img
-                        src={itemIcon(item.slug)}
-                        alt={item.name}
-                        className="h-8 w-8 opacity-90"
-                      />
-                    </button>
-                  );
-                })}
+              {CATALOG.filter((i) => i.slot === slot).map((item) => {
+                const equipped =
+                  item.slot === "consumable"
+                    ? unit.loadout.consumables.includes(item.slug)
+                    : currentSlug(unit.loadout, item.slot as AnySlot) === item.slug;
+                return (
+                  <button
+                    key={item.slug}
+                    onClick={() => equip(item)}
+                    onMouseEnter={() => setHovered(item)}
+                    onMouseLeave={() => setHovered(null)}
+                    className={`flex aspect-square items-center justify-center rounded-xl border transition-colors active:scale-[0.96] ${
+                      equipped
+                        ? "border-emerald-500/70 bg-emerald-500/10"
+                        : "border-zinc-800 bg-zinc-900/60 hover:border-zinc-600"
+                    }`}
+                    title={item.name}
+                  >
+                    <img src={itemIcon(item.slug)} alt={item.name} className="h-8 w-8 opacity-90" />
+                  </button>
+                );
+              })}
             </div>
           </div>
         ))}

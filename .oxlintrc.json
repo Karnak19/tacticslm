@@ -1,0 +1,41 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "overrides": [
+    {
+      "files": ["shared/**/*.ts", "shared/**/*.tsx"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/server/**", "server/*"],
+                "message": "shared/ must stay isomorphic: it is imported by both the Bun server and the browser (Phaser included). Keep server-only code out of it."
+              },
+              {
+                "group": ["node:*", "bun", "bun:*"],
+                "message": "shared/ must stay isomorphic: no node/bun-only builtins. Take the platform bit as an argument instead."
+              }
+            ],
+            "paths": [
+              "fs",
+              "path",
+              "os",
+              "crypto",
+              "child_process",
+              "http",
+              "https",
+              "net",
+              "stream",
+              "url",
+              "util",
+              "zlib",
+              "worker_threads",
+              "perf_hooks"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
