@@ -25,6 +25,10 @@ Built with **React**, **Tailwind CSS**, and **Elysia on Bun**.
 
 ## 🚀 Running it
 
+New here? **[ONBOARDING.md](ONBOARDING.md)** goes from a clean machine to a running
+match — Bun, Clerk, OpenRouter, the board art, and the four invariants worth knowing
+before you change anything. The quick version:
+
 ```sh
 bun install
 bash scripts/setup-assets.sh # restore the gitignored CraftPix board art
