@@ -25,5 +25,6 @@ Built with **React**, **Tailwind CSS**, and **Convex**.
 
 ## 🎨 Asset Credits
 
-- Sprites & tiles: [Tiny Dungeon](https://kenney.nl/assets/tiny-dungeon) by [Kenney](https://kenney.nl) (CC0)
+- Board art (Phaser renderer): [2D Top-Down Pixel Dungeon](https://craftpix.net/freebies/free-2d-top-down-pixel-dungeon-asset-pack/) and [Swordsman 1-3 Level](https://craftpix.net/freebies/free-swordsman-1-3-level-pixel-top-down-sprite-character-pack/) by [CraftPix](https://craftpix.net). Licensed for use, **not** for redistribution, so these files are gitignored — a fresh clone restores them with `bash scripts/setup-assets.sh` (see `public/sprites/craftpix/README.md`). The board renders as a bare grid until you do.
+- Sprites & tiles (DOM views): [Tiny Dungeon](https://kenney.nl/assets/tiny-dungeon) by [Kenney](https://kenney.nl) (CC0)
 - Item icons: [game-icons.net](https://game-icons.net) by Lorc, Delapouite, Carl Olsen, Willdabeast, DarkZaitzev, Lucas & contributors ([CC BY 3.0](https://creativecommons.org/licenses/by/3.0/))

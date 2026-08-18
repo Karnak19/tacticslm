@@ -5,7 +5,9 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { getApiKey } from "../lib/session";
-import { floorTile, skinSprite, WALL_TILE } from "../lib/sprites";
+import { skinSprite } from "../lib/sprites";
+import type { Popup } from "../game/BoardScene";
+import PhaserBoard from "./PhaserBoard";
 
 export default function MatchView({ room }: { room: Doc<"rooms"> }) {
   const data = useQuery(api.matches.byRoom, { roomId: room._id });
@@ -17,34 +19,27 @@ export default function MatchView({ room }: { room: Doc<"rooms"> }) {
   const replay = useQuery(api.matches.replay, match ? { matchId: match._id } : "skip");
   const lastTurn = replay?.turns[replay.turns.length - 1];
 
-  // Floating damage/heal popups: diff each unit's HP between renders.
+  // Floating damage/heal numbers: diff each unit's HP between renders here,
+  // then hand the deltas to the scene, which draws and animates them.
   const prevHp = useRef<Map<string, number>>(new Map());
-  const [popups, setPopups] = useState<
-    Array<{ id: number; unitId: string; delta: number; x: number; y: number }>
-  >([]);
-  const popupId = useRef(0);
+  const [popups, setPopups] = useState<Array<Popup>>([]);
+  const popupId = useRef(1);
   useEffect(() => {
     if (!data) return;
     const next = new Map<string, number>();
-    const fresh: typeof popups = [];
+    const fresh: Array<Popup> = [];
     for (const u of data.units) {
       if (u.hp === undefined || !u.position) continue;
       next.set(u._id, u.hp);
       const prev = prevHp.current.get(u._id);
       if (prev !== undefined && u.hp !== prev) {
-        fresh.push({
-          id: popupId.current++,
-          unitId: u._id,
-          delta: u.hp - prev,
-          x: u.position.x,
-          y: u.position.y,
-        });
+        fresh.push({ id: popupId.current++, cell: u.position, delta: u.hp - prev });
       }
     }
     if (prevHp.current.size > 0 && fresh.length > 0) {
       setPopups((p) => [...p, ...fresh]);
-      const ids = fresh.map((f) => f.id);
-      setTimeout(() => setPopups((p) => p.filter((f) => !ids.includes(f.id))), 1400);
+      const ids = new Set(fresh.map((f) => f.id));
+      setTimeout(() => setPopups((p) => p.filter((f) => !ids.has(f.id))), 1400);
     }
     prevHp.current = next;
   }, [data]);
@@ -115,13 +110,31 @@ export default function MatchView({ room }: { room: Doc<"rooms"> }) {
       <TurnOrder match={match} unitById={unitById} />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <Board
-          match={match}
-          units={units}
-          smokeCells={smokeCells}
-          lastTurn={lastTurn}
-          popups={popups}
-        />
+        <div className="relative">
+          <PhaserBoard
+            match={match}
+            units={units}
+            smokeCells={smokeCells}
+            lastTurn={lastTurn}
+            popups={popups}
+          />
+
+          {/* event ticker: the latest battle event, front and center */}
+          <AnimatePresence mode="popLayout">
+            {lastTurn && (
+              <motion.div
+                key={lastTurn._id}
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ type: "spring", duration: 0.4, bounce: 0 }}
+                className="pointer-events-none absolute top-2 left-1/2 z-10 max-w-[90%] -translate-x-1/2 rounded-full border border-zinc-700 bg-zinc-950/90 px-4 py-1.5 text-xs text-zinc-200 shadow-xl"
+              >
+                {lastTurn.summary}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
         <SidePanel match={match} unitById={unitById} />
       </div>
     </main>
@@ -189,152 +202,6 @@ function TurnOrder({
           </motion.div>
         );
       })}
-    </div>
-  );
-}
-
-function Board({
-  match,
-  units,
-  smokeCells,
-  lastTurn,
-  popups,
-}: {
-  match: Doc<"matches">;
-  units: Array<Doc<"units">>;
-  smokeCells: Array<{ x: number; y: number }>;
-  lastTurn?: Doc<"turns">;
-  popups: Array<{ id: number; unitId: string; delta: number; x: number; y: number }>;
-}) {
-  const n = match.gridSize;
-  const wallSet = new Set(match.walls.map((w) => `${w.x},${w.y}`));
-  const smokeSet = new Set(smokeCells.map((c) => `${c.x},${c.y}`));
-  const cell = 100 / n;
-
-  return (
-    <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
-      {/* static cells */}
-      <div
-        className="absolute inset-0 grid"
-        style={{ gridTemplateColumns: `repeat(${n}, 1fr)`, gridTemplateRows: `repeat(${n}, 1fr)` }}
-      >
-        {Array.from({ length: n * n }, (_, idx) => {
-          const x = idx % n;
-          const y = Math.floor(idx / n);
-          const isWall = wallSet.has(`${x},${y}`);
-          const isSmoke = smokeSet.has(`${x},${y}`);
-          return (
-            <div
-              key={idx}
-              className="relative"
-              style={{
-                backgroundImage: `url(${isWall ? WALL_TILE : floorTile(x, y)})`,
-                backgroundSize: "cover",
-                imageRendering: "pixelated",
-              }}
-            >
-              {isSmoke && <div className="absolute inset-0 bg-zinc-300/50" />}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* units */}
-      <AnimatePresence>
-        {units.map((u) => {
-          if (!u.position || !u.alive) return null;
-          const isCurrent = match.currentUnitId === u._id;
-          const isActor = lastTurn?.unitId === u._id;
-          const isAttackTarget =
-            lastTurn?.action.kind === "attack" && lastTurn.action.targetUnitId === u._id;
-          return (
-            <motion.div
-              key={u._id}
-              className="absolute flex items-center justify-center"
-              style={{ width: `${cell}%`, height: `${cell}%` }}
-              initial={false}
-              animate={{ left: `${u.position.x * cell}%`, top: `${u.position.y * cell}%` }}
-              exit={{ opacity: 0, scale: 0.2, rotate: 90, transition: { duration: 0.6 } }}
-              transition={{ type: "spring", stiffness: 200, damping: 25 }}
-            >
-              <motion.div
-                key={`fx-${lastTurn?._id ?? "none"}-${u._id}`}
-                animate={
-                  isAttackTarget
-                    ? {
-                        x: [0, -5, 5, -3, 0],
-                        filter: ["brightness(1)", "brightness(2.2)", "brightness(1)"],
-                      }
-                    : isActor
-                      ? { scale: [1, 1.18, 1] }
-                      : {}
-                }
-                transition={{ duration: 0.45 }}
-                className={`relative flex h-full w-full items-center justify-center rounded ${
-                  u.team === "a" ? "bg-sky-500/25" : "bg-rose-500/25"
-                } ${isCurrent ? "ring-2 ring-amber-400" : ""}`}
-                title={`${u.name} — ${u.hp} HP`}
-              >
-                {isCurrent && (
-                  <span className="absolute -inset-0.5 animate-pulse rounded ring-2 ring-amber-400/60" />
-                )}
-                <img
-                  src={skinSprite(u.skin, u.loadout.weapon)}
-                  alt={u.name}
-                  className={`h-5/6 w-5/6 ${u.team === "b" ? "-scale-x-100" : ""}`}
-                  style={{ imageRendering: "pixelated" }}
-                />
-                <span className="absolute -bottom-0.5 left-1/2 h-1 w-4/5 -translate-x-1/2 overflow-hidden rounded bg-zinc-950/80">
-                  <motion.span
-                    className="block h-full bg-emerald-400"
-                    animate={{ width: `${Math.max(0, Math.min(100, ((u.hp ?? 0) / 33) * 100))}%` }}
-                    transition={{ type: "spring", duration: 0.5, bounce: 0 }}
-                  />
-                </span>
-              </motion.div>
-            </motion.div>
-          );
-        })}
-      </AnimatePresence>
-
-      {/* floating damage / heal numbers */}
-      <AnimatePresence>
-        {popups.map((p) => (
-          <motion.span
-            key={p.id}
-            initial={{ opacity: 0, y: 0, scale: 0.6 }}
-            animate={{ opacity: 1, y: -22, scale: 1.1 }}
-            exit={{ opacity: 0, y: -34 }}
-            transition={{ type: "spring", duration: 0.7, bounce: 0 }}
-            className={`pointer-events-none absolute z-10 font-mono text-sm font-bold tabular-nums ${
-              p.delta < 0 ? "text-red-400" : "text-emerald-400"
-            }`}
-            style={{
-              left: `${(p.x + 0.5) * cell}%`,
-              top: `${p.y * cell}%`,
-              textShadow: "0 1px 3px rgba(0,0,0,0.9)",
-            }}
-          >
-            {p.delta > 0 ? `+${p.delta}` : p.delta}
-          </motion.span>
-        ))}
-      </AnimatePresence>
-
-      {/* event ticker: the latest battle event, front and center */}
-      <AnimatePresence mode="popLayout">
-        {lastTurn && (
-          <motion.div
-            key={lastTurn._id}
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ type: "spring", duration: 0.4, bounce: 0 }}
-            className="pointer-events-none absolute top-2 left-1/2 z-10 max-w-[90%] -translate-x-1/2 rounded-full border border-zinc-700 bg-zinc-950/90 px-4 py-1.5 text-xs text-zinc-200 shadow-xl"
-          >
-            {lastTurn.summary}
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
