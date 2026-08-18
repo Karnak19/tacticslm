@@ -34,7 +34,6 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
-    "convex": "^1.40.0",
     "drizzle-orm": "^0.45.2",
     "elysia": "^1.4.29",
     "lucide-react": "^1.17.0",

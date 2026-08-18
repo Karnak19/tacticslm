@@ -16,6 +16,24 @@ import { join } from "node:path";
 const ROUTES_DIR = "server/routes";
 const SERVICES_DIR = "server/services";
 
+/**
+ * The file with its comments blanked out.
+ *
+ * WHY: the scan below used to be `contents.includes("applyTurn")` on the raw
+ * text, which made the guard punish the very documentation that keeps the
+ * invariant alive — `server/routes/dev.ts` explains in a comment that it must
+ * route through the brain service and never touch `applyTurn`, and that comment
+ * alone turned the suite red. A prose mention is not a call, so comments are
+ * stripped before anything is matched. String literals are left alone: nothing
+ * legitimately names the mutation in a string, and blanking them would hide a
+ * dynamic `services.matches["applyTurn"]` dodge.
+ */
+function code(path: string): string {
+  return readFileSync(path, "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:])\/\/.*$/gm, "$1");
+}
+
 function walk(dir: string): Array<string> {
   if (!existsSync(dir)) return [];
   return readdirSync(dir).flatMap((entry) => {
@@ -25,10 +43,8 @@ function walk(dir: string): Array<string> {
 }
 
 describe("applyTurn stays out of the route layer", () => {
-  test("no file under server/routes/ mentions applyTurn", () => {
-    const offenders = walk(ROUTES_DIR).filter((path) =>
-      readFileSync(path, "utf8").includes("applyTurn"),
-    );
+  test("no file under server/routes/ calls applyTurn (comments excluded)", () => {
+    const offenders = walk(ROUTES_DIR).filter((path) => code(path).includes("applyTurn"));
     expect(offenders).toEqual([]);
   });
 
@@ -38,9 +54,7 @@ describe("applyTurn stays out of the route layer", () => {
       .filter((path) => path !== join(SERVICES_DIR, "matches.ts"))
       // A call or an import, not a prose mention: `lock.ts` legitimately explains
       // itself by naming `applyTurn` in a comment.
-      .filter((path) =>
-        /applyTurn\s*\(|import\s*\{[^}]*\bapplyTurn\b/.test(readFileSync(path, "utf8")),
-      );
+      .filter((path) => /applyTurn\s*\(|import\s*\{[^}]*\bapplyTurn\b/.test(code(path)));
     expect(callers).toEqual([join(SERVICES_DIR, "brain.ts")]);
   });
 });

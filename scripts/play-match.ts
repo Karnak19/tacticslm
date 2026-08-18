@@ -13,8 +13,6 @@
 // turn, doubling the LLM spend for nothing (the loser gets "Not this unit's
 // turn" and is skipped, so nothing corrupts — it just muddies the trace).
 
-import { execFileSync } from "node:child_process";
-
 const HELP = `
 play-match — seed and drive a TacticsLM match from the CLI
 
@@ -40,9 +38,13 @@ DRIVER OPTIONS
   --quiet                 Hide the model's thinking / team chat.
 
 ENV
+  ADMIN_TOKEN             Required, always: the dev routes (/api/dev/*) are
+                          gated on it. Use the same value the server runs with.
+  SERVER_URL              Where the Elysia server is (default
+                          http://localhost:4321, or $PORT).
   OPENROUTER_API_KEY      Required to drive turns (not needed for --watch).
                           The key transits to OpenRouter through the brain
-                          action only; it is never stored server-side.
+                          service only; it is never stored server-side.
 
 WARNING: do not drive from the terminal while a browser tab is open on the same
 match — both will try to take the same turn.
@@ -88,28 +90,68 @@ const yellow = wrap("33");
 const blue = wrap("36");
 const magenta = wrap("35");
 
-// ── convex CLI bridge ─────────────────────────────────────────────────────────
-// `dev:*` functions are internal, so they are only reachable through the CLI's
-// admin key — hence shelling out rather than using ConvexHttpClient.
+// ── dev API bridge ────────────────────────────────────────────────────────────
+// The `/api/dev/*` routes are mounted only outside production and require the
+// server's own ADMIN_TOKEN as a bearer token, so this is the one place the
+// script authenticates.
+//
+// WHY HTTP AND NOT THE SQLITE FILE DIRECTLY: opening `data/tacticslm.db` here
+// would make this a SECOND writer process, and the per-match mutex in
+// `server/services/lock.ts` is in-process only. Two writers means two turns
+// applied over the same state — exactly the corruption that lock exists to
+// prevent. Everything therefore goes through the running server.
 
-function convexRun<T>(fn: string, args: Record<string, unknown>): T {
-  let stdout: string;
-  try {
-    stdout = execFileSync("bunx", ["convex", "run", fn, JSON.stringify(args)], {
-      encoding: "utf8",
-      // Convex prints function logs on stderr; let them through — that is where
-      // brain.act's LLM failures show up.
-      stdio: ["ignore", "pipe", "inherit"],
-      maxBuffer: 32 * 1024 * 1024,
-    });
-  } catch (e) {
-    die(`\`convex run ${fn}\` failed. Is \`bunx convex dev\` running?\n  ${String(e)}`);
+const SERVER = process.env.SERVER_URL ?? `http://localhost:${process.env.PORT ?? 4321}`;
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
+
+async function devRun<T>(
+  route: string,
+  args: Record<string, unknown>,
+  method: "GET" | "POST" = "POST",
+): Promise<T> {
+  if (!ADMIN_TOKEN) {
+    die(
+      "ADMIN_TOKEN is not set. The dev routes require the same token the server\n" +
+        "  runs with:\n" +
+        "    export ADMIN_TOKEN=dev-secret   # in both shells\n" +
+        "    bun run dev                      # server\n" +
+        "    bun run play --seed              # here",
+    );
   }
-  const text = stdout.trim();
+  let url = `${SERVER}/api/dev/${route}`;
+  const init: RequestInit = {
+    method,
+    headers: { authorization: `Bearer ${ADMIN_TOKEN}`, "content-type": "application/json" },
+  };
+  if (method === "GET") {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(args)) params.set(k, String(v));
+    url += `?${params.toString()}`;
+  } else {
+    init.body = JSON.stringify(args);
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(url, init);
+  } catch (e) {
+    die(`cannot reach ${SERVER}. Is \`bun run dev\` running?\n  ${String(e)}`);
+  }
+  const text = (await response.text()).trim();
+  if (!response.ok) {
+    const detail = (() => {
+      try {
+        return String((JSON.parse(text) as { error?: unknown }).error ?? text);
+      } catch {
+        return text;
+      }
+    })();
+    die(`\`${method} /api/dev/${route}\` failed (${response.status}): ${detail}`);
+  }
   return (text.length === 0 ? null : JSON.parse(text)) as T;
 }
 
-// ── shapes returned by convex/dev.ts ──────────────────────────────────────────
+// ── shapes returned by server/routes/dev.ts ───────────────────────────────────
 
 type Cell = { x: number; y: number };
 type Team = "a" | "b";
@@ -223,7 +265,7 @@ function printBrainError(turn: TurnRow): boolean {
 
 // ── seeding ───────────────────────────────────────────────────────────────────
 
-function seed(): Seeded {
+async function seed(): Promise<Seeded> {
   const seedArgs: Record<string, unknown> = {};
   const model = opt("model");
   if (model) seedArgs.model = model;
@@ -236,7 +278,7 @@ function seed(): Seeded {
   const teamB = list("team-b");
   if (teamB) seedArgs.teamB = teamB;
 
-  const seeded = convexRun<Seeded>("dev:seedMatch", seedArgs);
+  const seeded = await devRun<Seeded>("seed-match", seedArgs);
   console.log(
     `\n${green(bold("seeded"))} room ${bold(seeded.code)} for ${seeded.playerName}\n` +
       `  watch it: ${bold(seeded.url)}\n` +
@@ -247,8 +289,13 @@ function seed(): Seeded {
 
 // ── driving ───────────────────────────────────────────────────────────────────
 
-function drive(matchId: string, apiKey: string, maxTurns: number, quiet: boolean): void {
-  let trace = convexRun<Trace>("dev:matchTrace", { matchId, sinceTurn: -1 });
+async function drive(
+  matchId: string,
+  apiKey: string,
+  maxTurns: number,
+  quiet: boolean,
+): Promise<void> {
+  let trace = await devRun<Trace>("match-trace", { matchId, sinceTurn: -1 }, "GET");
   // Attaching mid-match: only trace what happens from here on.
   let sinceTurn = trace.turnNumber - 1;
   printRoster(trace);
@@ -269,11 +316,11 @@ function drive(matchId: string, apiKey: string, maxTurns: number, quiet: boolean
       ),
     );
     const started = Date.now();
-    const result = convexRun<TurnResult>("dev:act", { matchId, apiKey });
+    const result = await devRun<TurnResult>("act", { matchId, apiKey });
     const seconds = ((Date.now() - started) / 1000).toFixed(1);
 
     const before = hpMap(trace.units);
-    const next = convexRun<Trace>("dev:matchTrace", { matchId, sinceTurn });
+    const next = await devRun<Trace>("match-trace", { matchId, sinceTurn }, "GET");
     const after = hpMap(next.units);
 
     if (next.turns.length === 0) {
@@ -350,12 +397,14 @@ if (!doSeed && !roomCode && !matchArg) {
 
 let matchId: string;
 if (doSeed) {
-  const seeded = seed();
+  const seeded = await seed();
   matchId = seeded.matchId;
 } else if (roomCode) {
-  const found = convexRun<{ roomId: string; matchId: string } | null>("dev:findMatch", {
-    code: roomCode,
-  });
+  const found = await devRun<{ roomId: string; matchId: string } | null>(
+    "find-match",
+    { code: roomCode },
+    "GET",
+  );
   if (!found) die(`no match found for room "${roomCode}".`);
   matchId = found.matchId;
 } else {
@@ -382,4 +431,4 @@ if (!apiKey) {
   );
 }
 
-drive(matchId, apiKey, num("max-turns") ?? 120, flag("quiet"));
+await drive(matchId, apiKey, num("max-turns") ?? 120, flag("quiet"));

@@ -29,6 +29,7 @@ import { matchRoutes } from "./routes/matches";
 import { rosterRoutes } from "./routes/roster";
 import { coachRoutes } from "./routes/coach";
 import { brainRoutes } from "./routes/brain";
+import { DEV_ROUTES_ENABLED, devRoutes } from "./routes/dev";
 import { wsRoutes } from "./routes/ws";
 
 const PORT = Number(process.env.PORT ?? 4321);
@@ -108,6 +109,11 @@ export const app = new Elysia()
       .use(rosterRoutes)
       .use(coachRoutes)
       .use(brainRoutes)
+      // The dev harness (`bun run play`). FIRST of the two locks that keep it
+      // off a production deployment: outside dev it is never even mounted, so
+      // `/api/dev/*` 404s like any unknown path. The second lock — the
+      // ADMIN_TOKEN bearer check — lives in the router itself.
+      .use(DEV_ROUTES_ENABLED ? devRoutes : new Elysia())
       // ---- 2. JSON 404 for unknown /api paths ------------------------
       // Catches unknown non-GET /api verbs. Unknown GET /api/* falls through
       // to the final handler instead, because a bare "/*" outranks "/api/*";

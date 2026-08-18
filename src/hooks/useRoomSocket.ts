@@ -1,10 +1,6 @@
 // One socket per room, and the only place the client turns push events into
-// state. Replaces the pile of Convex `useQuery` subscriptions that used to keep
-// the room screen live.
-//
-// NOT WIRED IN YET, on purpose. The frontend cutover is its own stage; this hook
-// compiles, is unit-shaped, and is deliberately unused so the Vite app keeps
-// running against Convex until that stage flips it over.
+// state. Replaces the pile of reactive `useQuery` subscriptions that used to keep
+// the room screen live. `src/pages/Room.tsx` owns the one subscription.
 //
 // ── WHY THE TOKEN IS IN THE QUERY STRING ──────────────────────────────────
 // `new WebSocket(url)` takes no headers. There is no option, no second

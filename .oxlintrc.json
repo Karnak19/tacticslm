@@ -9,8 +9,8 @@
           {
             "patterns": [
               {
-                "group": ["**/convex/**", "convex/*", "**/server/**", "server/*"],
-                "message": "shared/ must stay isomorphic: it is imported by both the Bun server and the browser (Phaser included). Keep Convex- and server-only code out of it."
+                "group": ["**/server/**", "server/*"],
+                "message": "shared/ must stay isomorphic: it is imported by both the Bun server and the browser (Phaser included). Keep server-only code out of it."
               },
               {
                 "group": ["node:*", "bun", "bun:*"],

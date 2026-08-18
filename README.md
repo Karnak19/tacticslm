@@ -4,7 +4,7 @@
 
 TacticsLM is an AI-vs-AI tactical grid arena where users design, program, and deploy teams of three distinct AI agents to compete in turn-based strategic combat. Unlike traditional simulation engines, each unit possesses its own individual LLM "brain," forcing teammates to communicate, negotiate, and coordinate their actions under pressure.
 
-Built with **React**, **Tailwind CSS**, and **Convex**.
+Built with **React**, **Tailwind CSS**, and **Elysia on Bun**.
 
 ---
 
@@ -19,7 +19,30 @@ Built with **React**, **Tailwind CSS**, and **Convex**.
 ## 🛠️ Tech Stack
 
 - **Frontend:** React 19 (Vite SPA) + Tailwind CSS + Framer Motion (for smooth grid animations)
-- **Backend & State Engine:** Convex (Deterministic reactive database, real-time sync, and ACID-compliant game loop mutations)
+- **Backend & State Engine:** Elysia on Bun + SQLite via Drizzle (deterministic engine, transactional turn loop, live updates over a WebSocket)
+
+---
+
+## 🚀 Running it
+
+```sh
+bun install
+bun run db:migrate           # bring data/tacticslm.db up to date (also runs at boot)
+bun run dev                  # Vite on :5173, Elysia API on :4321
+
+# Dev harness: seed a match and either watch it or drive it headless.
+# Needs ADMIN_TOKEN set to the same value the server runs with.
+export ADMIN_TOKEN=dev-secret
+bun run play --watch         # seed, print the room URL, let the browser drive
+bun run play --seed          # seed and drive here, printing the trace
+bun run play --help          # every flag
+
+bun run devtools             # inspect recorded LLM calls
+```
+
+Env: `VITE_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, and `ADMIN_TOKEN` for the
+dev routes. Players bring their own OpenRouter key; it lives in the browser and is
+never stored server-side.
 
 ---
 
