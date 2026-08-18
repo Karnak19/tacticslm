@@ -249,24 +249,6 @@ function applyTurnLocked(tx: Tx, args: ApplyTurnArgs): TurnOutcome {
  * the `match:state` payload is the one-line change that leaks the enemy's plans
  * to anyone with devtools open; `broadcast.ts` will throw if you try.
  */
-/**
- * A turn row with the acting unit's private reasoning removed.
- *
- * `thinking` is the unit's plan — what it intends next, and why. That is the
- * same class of secret as team chat, and arguably more decisive, so it sits
- * inside the same boundary: withheld while the match is running, revealed once
- * it is `finished`, exactly like `replay`'s messages.
- *
- * It used to ride along in every `match:turn` frame, published to both teams and
- * any spectator. The client only renders it after the match ends, so nothing was
- * visible — but it was on the wire, readable in devtools, and the whole broadcast
- * design exists to stop a player learning the enemy's plan. Convex leaked it the
- * same way; inheriting a hole is not a reason to keep it.
- */
-function withoutThinking(turn: Turn): Turn {
-  return { ...turn, thinking: null };
-}
-
 function broadcastTurn(db: DbLike, matchId: string, outcome: TurnOutcome): void {
   const { roomId } = outcome;
   const state = byRoom(db, roomId);
@@ -277,16 +259,14 @@ function broadcastTurn(db: DbLike, matchId: string, outcome: TurnOutcome): void 
     .from(turns)
     .where(and(eq(turns.matchId, matchId), eq(turns.turnNumber, outcome.turnNumber)))
     .get();
-  // Running match: strip `thinking` before it leaves the process. `outcome.finished`
-  // turns are revealed by broadcastFinished/replay instead.
-  if (turn) {
-    publishRoom(roomId, {
-      type: "match:turn",
-      roomId,
-      matchId,
-      turn: outcome.finished ? turn : withoutThinking(turn),
-    });
-  }
+  // `turn.thinking` ships as-is, live, to both teams and any spectator. That is
+  // deliberate: watching three independent brains reason about the same board is
+  // the product, not a side effect of it. It is also not a secret worth keeping —
+  // no unit's prompt ever reads another unit's reasoning (readTurnContext feeds
+  // each model only its OWN team's chat), and a human cannot act on it mid-match
+  // because applyTurn is reachable only from the brain. The secrecy boundary that
+  // matters is team chat, and it is enforced in the prompt and in publishTeam.
+  if (turn) publishRoom(roomId, { type: "match:turn", roomId, matchId, turn });
 
   publishRoom(roomId, { type: "match:state", roomId, matchId, ...state });
 
@@ -419,20 +399,18 @@ export function replay(
 ): { match: Match; turns: Array<Turn>; messages: Array<Message> } | null {
   const match = db.select().from(matches).where(eq(matches._id, matchId)).get();
   if (!match) return null;
-  const finished = match.status === "finished";
   const matchTurns = db
     .select()
     .from(turns)
     .where(eq(turns.matchId, matchId))
     .orderBy(asc(turns.turnNumber))
-    .all()
-    // Same boundary as `messages` below: reasoning is a plan, so it is withheld
-    // until the match is over. Gating only the client's render would leave it
-    // readable in this response.
-    .map((t) => (finished ? t : withoutThinking(t)));
-  const revealed = finished
-    ? db.select().from(messages).where(eq(messages.matchId, matchId)).all()
-    : [];
+    .all();
+  // Turns carry `thinking` at any point in the match — see broadcastTurn for why
+  // it is not a secret. Team chat is, and stays gated on `finished`.
+  const revealed =
+    match.status === "finished"
+      ? db.select().from(messages).where(eq(messages.matchId, matchId)).all()
+      : [];
   return { match, turns: matchTurns, messages: revealed };
 }
 
