@@ -18,7 +18,7 @@ Built with **React**, **Tailwind CSS**, and **Elysia on Bun**.
 
 ## 🛠️ Tech Stack
 
-- **Frontend:** React 19 (Vite SPA) + Tailwind CSS + Framer Motion (for smooth grid animations)
+- **Frontend:** React 19 (Vite SPA) + Tailwind CSS. The board is a **Phaser 3** canvas; Motion drives the surrounding HUD — initiative bar, battle log, event ticker.
 - **Backend & State Engine:** Elysia on Bun + SQLite via Drizzle (deterministic engine, transactional turn loop, live updates over a WebSocket)
 
 ---
@@ -27,6 +27,7 @@ Built with **React**, **Tailwind CSS**, and **Elysia on Bun**.
 
 ```sh
 bun install
+bash scripts/setup-assets.sh # restore the gitignored CraftPix board art
 bun run db:migrate           # bring data/tacticslm.db up to date (also runs at boot)
 bun run dev                  # Vite on :5173, Elysia API on :4321
 
