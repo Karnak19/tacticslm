@@ -46,7 +46,7 @@ export type TurnFx = {
 const TEAM_COLOR = { a: 0x0ea5e9, b: 0xf43f5e } as const;
 const AMBER = 0xfbbf24;
 
-/** Team a spawns on the top rows, team b on the bottom (convex/lib/engine.ts). */
+/** Team a spawns on the top rows, team b on the bottom (shared/engine.ts). */
 const TEAM_FACING: Record<"a" | "b", Facing> = { a: "down", b: "up" };
 
 /**

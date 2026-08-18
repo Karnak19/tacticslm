@@ -1,5 +1,10 @@
-// Inline squad-building coach — streams from the Convex /coach HTTP action.
-// The OpenRouter key + model travel via headers only (PokerLM pattern).
+// Inline squad-building coach — streams from `POST /api/coach` on the Elysia
+// server. The OpenRouter key + model travel via headers only (PokerLM pattern).
+//
+// Same origin now, so there is no URL to build: this used to derive a Convex
+// `.site` host from `VITE_CONVEX_URL`, which also meant the endpoint was
+// cross-origin and needed CORS. Vite proxies `/api` in dev and Elysia serves the
+// bundle in prod, so a relative path is correct in both.
 
 import { useMemo, useState } from "react";
 import { useChat } from "@ai-sdk/react";
@@ -24,7 +29,7 @@ import ModelPicker from "./ModelPicker";
 import { itemIcon } from "../lib/sprites";
 import { getApiKey } from "../lib/session";
 
-const COACH_URL = (import.meta.env.VITE_CONVEX_URL as string).replace(".cloud", ".site") + "/coach";
+const COACH_URL = "/api/coach";
 
 type Block = { kind: "text"; text: string } | { kind: "code"; text: string };
 

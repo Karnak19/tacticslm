@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Authenticated, Unauthenticated } from "convex/react";
-import { SignInButton, UserButton } from "@clerk/clerk-react";
+import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react";
 import { ChevronDownIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { getApiKey, setApiKey } from "../lib/session";
@@ -100,14 +99,14 @@ export default function SiteNav() {
         <span className="font-bold tracking-tight">TacticsLM</span>
       </Link>
       <div className="flex items-center gap-4">
-        <Authenticated>
+        <SignedIn>
           <Link
             to="/dashboard"
             className="text-sm text-zinc-400 transition-colors hover:text-zinc-100"
           >
             My units
           </Link>
-        </Authenticated>
+        </SignedIn>
         <a
           href="https://github.com/Karnak19/tacticslm"
           target="_blank"
@@ -117,16 +116,16 @@ export default function SiteNav() {
           GitHub
         </a>
         <NavKey />
-        <Authenticated>
+        <SignedIn>
           <UserButton />
-        </Authenticated>
-        <Unauthenticated>
+        </SignedIn>
+        <SignedOut>
           <SignInButton mode="modal">
             <button className="rounded-lg bg-zinc-800 px-4 py-2 text-sm font-semibold transition-colors hover:bg-zinc-700 active:scale-[0.96]">
               Sign in
             </button>
           </SignInButton>
-        </Unauthenticated>
+        </SignedOut>
       </div>
     </nav>
   );

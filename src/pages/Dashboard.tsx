@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Authenticated, AuthLoading, Unauthenticated, useMutation, useQuery } from "convex/react";
-import { SignInButton } from "@clerk/clerk-react";
-import { api } from "../../convex/_generated/api";
-import type { Doc, Id } from "../../convex/_generated/dataModel";
+import { ClerkLoading, SignedIn, SignedOut, SignInButton } from "@clerk/clerk-react";
+import type { RosterUnit } from "../../shared/types";
+import { api, unwrap } from "../lib/eden";
 import UnitEditor, { type UnitDraft } from "../components/UnitEditor";
 import { itemIcon, skinSprite } from "../lib/sprites";
 
@@ -24,10 +23,10 @@ const NEW_UNIT: UnitDraft = {
 export default function Dashboard() {
   return (
     <>
-      <AuthLoading>
+      <ClerkLoading>
         <Centered>Loading…</Centered>
-      </AuthLoading>
-      <Unauthenticated>
+      </ClerkLoading>
+      <SignedOut>
         <Centered>
           <span className="mr-3">Sign in to manage your units.</span>
           <SignInButton mode="modal">
@@ -36,27 +35,35 @@ export default function Dashboard() {
             </button>
           </SignInButton>
         </Centered>
-      </Unauthenticated>
-      <Authenticated>
+      </SignedOut>
+      <SignedIn>
         <DashboardInner />
-      </Authenticated>
+      </SignedIn>
     </>
   );
 }
 
 function DashboardInner() {
-  const roster = useQuery(api.roster.list);
-  const items = useQuery(api.items.list);
-  const save = useMutation(api.roster.save);
-  const remove = useMutation(api.roster.remove);
-
+  // Fetched once, then kept in step by hand: nobody but this user writes this
+  // user's roster, so there is nothing to subscribe to.
+  const [roster, setRoster] = useState<Array<RosterUnit> | null>(null);
   // null = nothing open; "new" = creating; otherwise editing that roster id
-  const [editing, setEditing] = useState<"new" | Id<"rosterUnits"> | null>(null);
+  const [editing, setEditing] = useState<"new" | string | null>(null);
   const [draft, setDraft] = useState<UnitDraft>(NEW_UNIT);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  if (!roster || !items) return <Centered>Loading…</Centered>;
+  const reload = useCallback(async () => {
+    setRoster(unwrap(await api.api.roster.get()));
+  }, []);
+
+  useEffect(() => {
+    void reload().catch((e: unknown) => {
+      setError(e instanceof Error ? e.message : String(e));
+    });
+  }, [reload]);
+
+  if (!roster) return <Centered>Loading…</Centered>;
 
   function openNew() {
     setDraft(NEW_UNIT);
@@ -64,12 +71,13 @@ function DashboardInner() {
     setError(null);
   }
 
-  function openEdit(unit: Doc<"rosterUnits">) {
+  function openEdit(unit: RosterUnit) {
     setDraft({
       name: unit.name,
       personality: unit.personality,
       model: unit.model,
-      skin: unit.skin,
+      // The column is nullable; the draft treats "no skin" as absent.
+      skin: unit.skin ?? undefined,
       loadout: unit.loadout,
     });
     setEditing(unit._id);
@@ -88,7 +96,13 @@ function DashboardInner() {
     }
     setBusy(true);
     try {
-      await save({ id: editing === "new" ? undefined : (editing ?? undefined), ...draft });
+      unwrap(
+        await api.api.roster.post({
+          ...draft,
+          id: editing === "new" ? undefined : (editing ?? undefined),
+        }),
+      );
+      await reload();
       setEditing(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -97,9 +111,15 @@ function DashboardInner() {
     }
   }
 
-  async function onDelete(id: Id<"rosterUnits">) {
-    await remove({ id });
-    if (editing === id) setEditing(null);
+  async function onDelete(id: string) {
+    setError(null);
+    try {
+      unwrap(await api.api.roster({ id }).delete());
+      await reload();
+      if (editing === id) setEditing(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
   }
 
   return (
@@ -127,7 +147,7 @@ function DashboardInner() {
               ← Back to roster
             </button>
           </div>
-          <UnitEditor unit={draft} items={items} onChange={(p) => setDraft({ ...draft, ...p })} />
+          <UnitEditor unit={draft} onChange={(p) => setDraft({ ...draft, ...p })} />
           <div className="mt-5 flex items-center gap-3">
             <button
               onClick={onSave}
@@ -159,7 +179,7 @@ function DashboardInner() {
               >
                 <div className="flex items-center gap-3">
                   <img
-                    src={skinSprite(unit.skin, unit.loadout.weapon)}
+                    src={skinSprite(unit.skin ?? undefined, unit.loadout.weapon)}
                     alt=""
                     className="h-10 w-10"
                     style={{ imageRendering: "pixelated" }}

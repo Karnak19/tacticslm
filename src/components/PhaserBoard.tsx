@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import Phaser from "phaser";
-import type { Doc } from "../../convex/_generated/dataModel";
-import { CATALOG, type CatalogItem } from "../../convex/lib/catalog";
-import { resolveStats } from "../../convex/lib/engine";
+import type { Match, Turn, Unit } from "../../shared/types";
+import { CATALOG, type CatalogItem } from "../../shared/catalog";
+import { resolveStats } from "../../shared/engine";
 import { skinTier } from "../lib/sprites";
 import { BoardScene, type BoardUnit, type Popup } from "../game/BoardScene";
 
@@ -10,7 +10,7 @@ import { BoardScene, type BoardUnit, type Popup } from "../game/BoardScene";
 // without another query.
 const catalog: Map<string, CatalogItem> = new Map(CATALOG.map((i) => [i.slug, i]));
 
-function maxHpOf(unit: Doc<"units">): number {
+function maxHpOf(unit: Unit): number {
   try {
     return resolveStats(unit.loadout, catalog).maxHp;
   } catch {
@@ -19,7 +19,7 @@ function maxHpOf(unit: Doc<"units">): number {
 }
 
 // Ranged attackers arc a projectile; melee strikes in place.
-function isRanged(unit: Doc<"units"> | undefined): boolean {
+function isRanged(unit: Unit | undefined): boolean {
   if (!unit) return false;
   try {
     return resolveStats(unit.loadout, catalog).attackRange > 1;
@@ -35,10 +35,10 @@ export default function PhaserBoard({
   lastTurn,
   popups,
 }: {
-  match: Doc<"matches">;
-  units: Array<Doc<"units">>;
+  match: Match;
+  units: Array<Unit>;
   smokeCells: Array<{ x: number; y: number }>;
-  lastTurn?: Doc<"turns">;
+  lastTurn?: Turn;
   popups: Array<Popup>;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -91,14 +91,14 @@ export default function PhaserBoard({
         id: u._id,
         team: u.team,
         name: u.name,
-        tier: skinTier(u.skin, u.loadout.weapon),
+        tier: skinTier(u.skin ?? undefined, u.loadout.weapon),
         position: u.position!,
         hp: u.hp ?? 0,
         maxHp: maxHpOf(u),
       }));
     const fresh = popups.filter((p) => p.id > consumed.current);
     if (fresh.length > 0) consumed.current = fresh[fresh.length - 1].id;
-    sceneRef.current?.sync(alive, match.currentUnitId, fresh);
+    sceneRef.current?.sync(alive, match.currentUnitId ?? undefined, fresh);
   }, [ready, units, match.currentUnitId, popups]);
 
   // Attack / kill flourishes, keyed on the turn id so each turn plays once.
@@ -109,8 +109,8 @@ export default function PhaserBoard({
     const target = targetId ? units.find((u) => u._id === targetId) : undefined;
     sceneRef.current?.playTurn({
       id: lastTurn._id,
-      actorCell: actor?.position,
-      targetCell: target?.position,
+      actorCell: actor?.position ?? undefined,
+      targetCell: target?.position ?? undefined,
       ranged: isRanged(actor),
       killed: target ? target.alive === false : false,
     });

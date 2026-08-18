@@ -19,7 +19,9 @@
 import { Elysia } from "elysia";
 import { staticPlugin } from "@elysiajs/static";
 import { resolve } from "node:path";
+import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import { assertAuthConfigured } from "./auth";
+import { getDb } from "./db/client";
 import { context } from "./routes/context";
 import { roomRoutes } from "./routes/rooms";
 import { matchRoutes } from "./routes/matches";
@@ -143,10 +145,24 @@ export const app = new Elysia()
 
 export type App = typeof app;
 
+/**
+ * Bring the schema up to date. Runs at boot, and also standalone via
+ * `bun run db:migrate` (which uses drizzle-kit against the same folder).
+ *
+ * Idempotent: Drizzle records applied files in `__drizzle_migrations`, so a
+ * second run is a no-op. Doing it at boot is what makes a fresh checkout work —
+ * without it `data/tacticslm.db` is created empty by the first connection and
+ * every query fails on a missing table.
+ */
+export function runMigrations(): void {
+  migrate(getDb(), { migrationsFolder: `${import.meta.dir}/db/migrations` });
+}
+
 if (import.meta.main) {
   // Fail loudly at boot. A missing key otherwise shows up as every request
   // returning 401, which reads as "my login broke" instead of "misconfigured".
   assertAuthConfigured();
+  runMigrations();
   app.listen(PORT);
   console.log(`tacticslm on http://localhost:${PORT} (serving ${DIST})`);
 }

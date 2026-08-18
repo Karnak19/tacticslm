@@ -161,41 +161,38 @@ export function useRoomSocket(
    * The full-snapshot fetch. Run before the socket opens and again after every
    * reconnect; the socket is what keeps it fresh, not what establishes it.
    */
-  const seed = useCallback(
-    async (id: string): Promise<void> => {
-      const lobby = unwrap(await api.api.rooms({ id }).get());
-      const live = unwrap(await api.api.matches["by-room"]({ roomId: id }).get());
+  const seed = useCallback(async (id: string): Promise<void> => {
+    const lobby = unwrap(await api.api.rooms({ id }).get());
+    const live = unwrap(await api.api.matches["by-room"]({ roomId: id }).get());
 
-      // Turns and the caller's own chat, only once there is a match to have them.
-      let turns: Array<Turn> = [];
-      let messages: Array<Message> = [];
-      let winnerTeam: Team | "draw" | null = null;
-      if (live) {
-        const replay = unwrap(await api.api.matches({ id: live.match._id }).replay.get());
-        turns = replay.turns;
-        // `replay` withholds chat until the match is finished; `team-messages`
-        // returns the caller's own team's, whatever the status. Taking the longer
-        // of the two is how a finished match ends up showing both teams'.
-        const own = unwrap(await api.api.matches({ id: live.match._id })["team-messages"].get());
-        messages = replay.messages.length > own.length ? replay.messages : own;
-        winnerTeam = (live.match.winnerTeam as Team | "draw" | null) ?? null;
-      }
+    // Turns and the caller's own chat, only once there is a match to have them.
+    let turns: Array<Turn> = [];
+    let messages: Array<Message> = [];
+    let winnerTeam: Team | "draw" | null = null;
+    if (live) {
+      const replay = unwrap(await api.api.matches({ id: live.match._id }).replay.get());
+      turns = replay.turns;
+      // `replay` withholds chat until the match is finished; `team-messages`
+      // returns the caller's own team's, whatever the status. Taking the longer
+      // of the two is how a finished match ends up showing both teams'.
+      const own = unwrap(await api.api.matches({ id: live.match._id })["team-messages"].get());
+      messages = replay.messages.length > own.length ? replay.messages : own;
+      winnerTeam = (live.match.winnerTeam as Team | "draw" | null) ?? null;
+    }
 
-      setState((prev) => ({
-        ...prev,
-        room: lobby.room,
-        players: lobby.players,
-        match: live?.match ?? null,
-        units: live?.units ?? [],
-        turns,
-        messages,
-        winnerTeam,
-        loading: false,
-        error: null,
-      }));
-    },
-    [],
-  );
+    setState((prev) => ({
+      ...prev,
+      room: lobby.room,
+      players: lobby.players,
+      match: live?.match ?? null,
+      units: live?.units ?? [],
+      turns,
+      messages,
+      winnerTeam,
+      loading: false,
+      error: null,
+    }));
+  }, []);
 
   const apply = useCallback((event: ServerEvent) => {
     setState((prev) => {
