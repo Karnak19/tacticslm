@@ -7,6 +7,7 @@
     "dev": "bun scripts/dev.ts",
     "dev:web": "vite",
     "dev:server": "bun --watch server/app.ts",
+    "devtools": "bunx @ai-sdk/devtools",
     "db:migrate": "bun -e 'const { runMigrations } = await import(\"./server/app.ts\"); runMigrations(); console.log(\"migrations applied\");'",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
@@ -53,6 +54,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@ai-sdk/devtools": "^1.0.12",
     "@types/bun": "^1.3.14",
     "@types/node": "^24.12.3",
     "@types/react": "^19.2.14",

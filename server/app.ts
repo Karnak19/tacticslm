@@ -21,6 +21,7 @@ import { staticPlugin } from "@elysiajs/static";
 import { resolve } from "node:path";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import { assertAuthConfigured } from "./auth";
+import { registerDevTools } from "./devtools";
 import { getDb } from "./db/client";
 import { context } from "./routes/context";
 import { roomRoutes } from "./routes/rooms";
@@ -163,6 +164,11 @@ if (import.meta.main) {
   // returning 401, which reads as "my login broke" instead of "misconfigured".
   assertAuthConfigured();
   runMigrations();
+  // Dev-only, and lazily imported inside: see server/devtools.ts. Registered
+  // before listen so the first turn of the first match is already captured.
+  if (await registerDevTools()) {
+    console.log("ai-sdk devtools: recording to .devtools/ — view with `bun run devtools`");
+  }
   app.listen(PORT);
   console.log(`tacticslm on http://localhost:${PORT} (serving ${DIST})`);
 }

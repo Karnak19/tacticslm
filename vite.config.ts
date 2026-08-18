@@ -9,6 +9,11 @@ const ELYSIA = `http://localhost:${process.env.PORT ?? 4321}`;
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
+    // Clerk renders its own hooks, so it must get the SAME React instance as the
+    // app. Without this, a stale pre-bundle can hand it a second copy and every
+    // hook call fails with "resolveDispatcher() is null" — which reads like a
+    // Rules-of-Hooks violation in our code and is not.
+    dedupe: ["react", "react-dom"],
     alias: {
       "@": path.resolve(__dirname, "./src"),
       "@shared": path.resolve(__dirname, "./shared"),

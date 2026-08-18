@@ -14,7 +14,7 @@
 //   * MAX_LLM_RETRIES / LLM_TIME_BUDGET_MS,
 //   * the rejected-decision retry that appends the assistant JSON plus the
 //     rejection reason to `messages`,
-//   * NoOutputGeneratedError breaking instead of retrying,
+//   * NoOutputGeneratedError getting ONE stricter retry and then breaking,
 //   * diagnostics logged BEFORE `result.output` is touched,
 //   * `isStaleTurnError` → skipped,
 //   * the final safe `{kind:"wait"}` with the error in `thinking`.
@@ -61,6 +61,23 @@ const LLM_TIME_BUDGET_MS = 45_000;
 export const LLM_MAX_OUTPUT_TOKENS = 2000;
 
 const TEAM_CHAT_WINDOW = 12;
+
+/**
+ * Whether to keep the raw provider HTTP bodies in the step result, which is what
+ * makes them show up in the AI SDK DevTools recording (`.devtools/`).
+ *
+ * OFF BY DEFAULT, ON PURPOSE. The player's OpenRouter key transits this module
+ * per call (see the header) and DevTools writes what it captures to a plain-text
+ * file. Inspection of `@ai-sdk/devtools` says the key cannot get there — it
+ * stores `request.body`, the JSON payload, and never the Authorization header,
+ * the provider settings or `createOpenRouter`'s headers — but "a third party's
+ * serializer happens not to reach the secret today" is not a good enough reason
+ * to write a user's credential-bearing request to disk by default. Turn it on
+ * deliberately, for a debugging session, with
+ * `AI_DEVTOOLS_RAW_BODIES=1 bun run dev`.
+ */
+const RECORD_RAW_BODIES =
+  process.env.NODE_ENV !== "production" && process.env.AI_DEVTOOLS_RAW_BODIES === "1";
 
 /**
  * `applyTurn` is racing with the match itself: while we were waiting on the model
@@ -145,16 +162,35 @@ export function unauthedTurnContext(db: DbLike, matchId: string): TurnContext | 
 /** The engine `Action`, but with real row ids. */
 type DbAction = Action;
 
+// Hard character cap on `thinking`. It exists in the schema, not just in prose,
+// because prose failed: with reasoning disabled the model spent all 2000 output
+// tokens narrating and 43% of turns died with finishReason "length" before the
+// JSON reached `moveTo`/`action`. A zod `.max()` becomes a json-schema
+// `maxLength`; with `structuredOutputs: { strict: false }` (load-bearing, see
+// `openRouterGenerator`) not every provider enforces it, so this is one layer of
+// three — the others are field order below and the length-retry in `takeTurn`.
+export const THINKING_MAX_CHARS = 240;
+export const MESSAGE_MAX_CHARS = 400;
+
+// FIELD ORDER IS LOAD-BEARING. Fields are emitted in schema order, so `moveTo`
+// and `action` are written BEFORE the flavour text: the model commits to a
+// decision and then narrates it, instead of narrating its way into a decision it
+// never records. That is the fix for the 18% of parsed turns whose `thinking`
+// said "close the distance" while `moveTo` was null.
+//
+// The trade-off, stated plainly: `thinking` first was chain-of-thought, and
+// moving it last gives that up. It is worth giving up here because the prompt
+// already does the tactical work the model would have had to reason out —
+// REACHABLE CELLS and ATTACK POSITIONS are precomputed with the engine's own
+// range/LOS code, so a turn is mostly a lookup, not a derivation. It does NOT
+// help against truncation on its own (a cut-off response is malformed JSON
+// whatever the order); it helps because the decision is the part that gets
+// written while the budget is still there.
 const DecisionSchema = z.object({
-  thinking: z
-    .string()
-    .describe(
-      "Your tactical reasoning, in character — 2 or 3 sentences MAX. Shown in the post-match replay.",
-    ),
   moveTo: z
     .union([z.object({ x: z.number().int(), y: z.number().int() }), z.null()])
     .describe(
-      "REQUIRED. Destination cell from your REACHABLE CELLS list. Use null ONLY if standing still is a deliberate tactical choice. If your thinking says you advance/retreat/flank, this field MUST contain the cell.",
+      "REQUIRED. Decide this FIRST. Destination cell from your REACHABLE CELLS list. Use null ONLY if standing still is a deliberate tactical choice.",
     ),
   action: z.object({
     kind: z.enum(["attack", "active", "consumable", "wait"]),
@@ -168,8 +204,21 @@ const DecisionSchema = z.object({
       .describe("Target cell for area effects (smoke_bomb, grenade)."),
     consumableSlug: z.string().nullish().describe("Which consumable to use."),
   }),
+  // `.overwrite` before `.max`: the cap reaches the provider as a json-schema
+  // `maxLength`, but an over-long answer is TRUNCATED rather than rejected. A
+  // plain `.max()` would fail validation and throw away an otherwise perfectly
+  // good move — the opposite of the bug being fixed.
+  thinking: z
+    .string()
+    .overwrite((v) => v.slice(0, THINKING_MAX_CHARS))
+    .max(THINKING_MAX_CHARS)
+    .describe(
+      `In character, why you just chose that move and action. HARD LIMIT ${THINKING_MAX_CHARS} characters — one or two short sentences. Longer answers are cut off and the whole turn is lost. Shown in the post-match replay.`,
+    ),
   message: z
     .string()
+    .overwrite((v) => v.slice(0, MESSAGE_MAX_CHARS))
+    .max(MESSAGE_MAX_CHARS)
     .nullish()
     .describe("Short message to your teammates, in character. They see it on their turns."),
 });
@@ -382,7 +431,8 @@ RULES:
 - Attacks need the target within your weapon range${stats.needsLos ? " and line of sight" : ""}.
 - Your message to teammates is limited to ${BASE_MESSAGE_BUDGET * stats.messageBudgetMultiplier} characters.
 - If your action is illegal it will be rejected and you will be asked again; repeated failures waste your turn.
-- Your decision fields must match your thinking: if you plan to move, SET moveTo. A null moveTo means you stand still.
+- Fill moveTo and action FIRST, then write thinking to explain what you just chose. A null moveTo means you stand still, so if you mean to advance, retreat or flank, moveTo MUST contain the cell.
+- Never use your active ability on a no-op: no healing a unit that is already at full HP, no buff that changes nothing. If the active would do nothing, attack or move instead.
 - The match ends at the round cap: the team with more total HP wins. If ATTACK POSITIONS lists a cell, moving there and attacking is almost always right. If it is empty, use the map to close the distance — pick a reachable cell that puts a wall between you and their shooters, or that will open a shot next turn. Holding still with no shot on offer is how you lose on points.`;
 
   const myTeamHp = all
@@ -550,6 +600,9 @@ export const openRouterGenerator: DecisionGenerator = async ({
     messages,
     temperature: 0.7,
     maxOutputTokens,
+    // Opt-in only; see RECORD_RAW_BODIES above. Default (`undefined`) is the
+    // SDK's own default of excluding both.
+    include: RECORD_RAW_BODIES ? { requestBody: true, responseBody: true } : undefined,
   });
 
   const finishReason = result.finishReason;
@@ -588,6 +641,8 @@ export async function takeTurn(
 ): Promise<TurnResult> {
   const { system, user } = buildPrompt(ctxData);
   let lastError = "";
+  // One stricter retry after a truncated (finishReason "length") response, ever.
+  let lengthRetried = false;
   const chat: Array<{ role: "user" | "assistant"; content: string }> = [
     { role: "user", content: user },
   ];
@@ -629,10 +684,22 @@ export async function takeTurn(
         detail,
       );
       // A truncated response is a property of the request, not bad luck: an
-      // identical retry truncates identically and just burns the budget.
+      // IDENTICAL retry truncates identically and just burns the budget. So retry
+      // exactly once, and only with a genuinely different request — one that
+      // tells the model its last answer was too long. Anything beyond that is
+      // the blind retrying this guard was added to stop.
       if (NoOutputGeneratedError.isInstance(e)) {
-        console.error("brain.takeTurn: no output generated — not retrying an identical request");
-        break;
+        if (lengthRetried || Date.now() > deadline) {
+          console.error("brain.takeTurn: no output generated — not retrying an identical request");
+          break;
+        }
+        lengthRetried = true;
+        console.warn("brain.takeTurn: output truncated — one stricter retry");
+        chat.push({
+          role: "user",
+          content: `Your previous response was too long and was cut off before the JSON was complete, so the turn was lost. Answer again. Put moveTo and action first, keep "thinking" under ${THINKING_MAX_CHARS} characters and "message" under ${MESSAGE_MAX_CHARS} (or null). Do not explain yourself beyond that.`,
+        });
+        continue;
       }
       continue; // retry; falls through to the safe default after MAX_LLM_RETRIES
     }

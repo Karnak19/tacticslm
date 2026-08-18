@@ -22,6 +22,9 @@ import {
   formatAttackPositions,
   type Decision,
   type DecisionGenerator,
+  DecisionSchema,
+  MESSAGE_MAX_CHARS,
+  THINKING_MAX_CHARS,
   isStaleTurnError,
   readTurnContext,
   renderMap,
@@ -184,7 +187,7 @@ test("after the retries are spent the unit waits, with the error in `thinking`",
   expect(getMatch(h.db, seeded.matchId).turnNumber).toBe(1);
 });
 
-test("NoOutputGeneratedError breaks out instead of retrying an identical request", async () => {
+test("a truncated response gets ONE stricter retry, then gives up", async () => {
   const ctxData = unauthedTurnContext(h.db, seeded.matchId)!;
   let calls = 0;
   const generate: DecisionGenerator = () => {
@@ -192,8 +195,53 @@ test("NoOutputGeneratedError breaks out instead of retrying an identical request
     throw new NoOutputGeneratedError({ message: "no output" });
   };
   await takeTurn(h.db, seeded.matchId, "key", ctxData, generate);
-  expect(calls).toBe(1);
+  // Two calls, not three: the first truncation buys a stricter request, and that
+  // is the end of it. Blind retrying of an identical request stays banned.
+  expect(calls).toBe(2);
   expect(h.db.select().from(turns).all()[0].action).toEqual({ kind: "wait" });
+});
+
+test("the retry after a truncated response is a stricter request, and it lands", async () => {
+  const ctxData = unauthedTurnContext(h.db, seeded.matchId)!;
+  const seen: Array<string> = [];
+  let calls = 0;
+  const generate: DecisionGenerator = async ({ messages }) => {
+    calls++;
+    seen.push(messages.map((m) => m.content).join("\n"));
+    // First response is cut off mid-JSON: finishReason "length" -> the SDK's
+    // `.output` getter throws.
+    if (calls === 1) throw new NoOutputGeneratedError({ message: "no output" });
+    return {
+      decision: decide({ thinking: "brief", moveTo: null }),
+      finishReason: "stop",
+    };
+  };
+
+  expect(await takeTurn(h.db, seeded.matchId, "key", ctxData, generate)).toEqual({ status: "ok" });
+  expect(calls).toBe(2);
+  // The second request is genuinely different: it says why the first failed.
+  expect(seen[0]).not.toContain("too long");
+  expect(seen[1]).toContain("too long");
+  expect(seen[1]).toContain(String(THINKING_MAX_CHARS));
+  const row = h.db.select().from(turns).all()[0];
+  expect(row.thinking).toBe("brief");
+});
+
+test("an over-long thinking is truncated, not rejected", () => {
+  const parsed = DecisionSchema.parse({
+    moveTo: null,
+    action: { kind: "wait" },
+    thinking: "x".repeat(THINKING_MAX_CHARS + 500),
+    message: "y".repeat(MESSAGE_MAX_CHARS + 500),
+  });
+  expect(parsed.thinking).toHaveLength(THINKING_MAX_CHARS);
+  expect(parsed.message).toHaveLength(MESSAGE_MAX_CHARS);
+});
+
+test("moveTo and action come before thinking in the schema", () => {
+  // Field order is what the model emits in, so the decision is written before the
+  // flavour text. Guard it: a tidy-up that reorders these regresses the bug.
+  expect(Object.keys(DecisionSchema.shape)).toEqual(["moveTo", "action", "thinking", "message"]);
 });
 
 test("a turn taken underneath us is reported as skipped, not as a failure", async () => {

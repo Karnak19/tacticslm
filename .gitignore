@@ -36,3 +36,8 @@ public/sprites/craftpix/*
 /spike/
 /spike-ai/
 /spike-fullstack/
+
+# AI SDK DevTools recordings: dev-only, and plain-text prompts and responses.
+# @ai-sdk/devtools appends this line itself on first capture; it is written out
+# here so the repo never depends on that happening.
+.devtools/
