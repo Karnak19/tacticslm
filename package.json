@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "bun scripts/dev.ts",
+    "dev:web": "vite",
     "dev:server": "bun --watch server/app.ts",
     "db:migrate": "bun -e 'const { runMigrations } = await import(\"./server/app.ts\"); runMigrations(); console.log(\"migrations applied\");'",
     "build": "tsc -b && vite build",

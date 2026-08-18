@@ -35,3 +35,4 @@ public/sprites/craftpix/*
 # code comments under server/). spike-ai/ carries its own node_modules.
 /spike/
 /spike-ai/
+/spike-fullstack/
