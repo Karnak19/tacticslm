@@ -1,0 +1,34 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A newer push to the same PR makes the older run irrelevant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+
+      # Typecheck, lint, tests, then build. The build is last and is the real
+      # bar: tsc and oxlint can both pass while `vite build` fails.
+      - run: bunx tsc -b
+      - run: bunx oxlint .
+      - run: bun test
+      - run: bun run build
+
+      # The engine self-checks. Cheap, and they are what proves a rules change
+      # did not quietly alter combat resolution.
+      - run: bun test tests/engine.test.ts
