@@ -8,7 +8,7 @@
     "dev:web": "vite",
     "dev:server": "bun --watch server/app.ts",
     "devtools": "bunx @ai-sdk/devtools",
-    "db:migrate": "bun -e 'const { runMigrations } = await import(\"./server/app.ts\"); runMigrations(); console.log(\"migrations applied\");'",
+    "db:migrate": "bun scripts/migrate.ts",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "play": "bun scripts/play-match.ts",
