@@ -25,6 +25,7 @@ type OpenRouterModel = {
 };
 
 const RECOMMENDED = [
+  "nvidia/nemotron-3.5-lightning",
   "deepseek/deepseek-v4-flash",
   "deepseek/deepseek-v4-pro",
   "anthropic/claude-sonnet-4.6",

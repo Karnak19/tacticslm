@@ -10,7 +10,7 @@ export default function DevEditor() {
   const [draft, setDraft] = useState<UnitDraft>({
     name: "Havoc",
     personality: "A reckless diver who lives for the flank.",
-    model: "deepseek/deepseek-v4-flash",
+    model: "nvidia/nemotron-3.5-lightning",
     loadout: {
       weapon: "dagger",
       helmet: "hood",
