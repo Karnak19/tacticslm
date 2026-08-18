@@ -56,6 +56,9 @@ export type RoomEvent =
   | { type: "lobby:update"; roomId: string; room: Room; players: Array<LobbyPlayer> }
   | { type: "match:start"; roomId: string; matchId: string; match: Match; units: Array<Unit> }
   | { type: "match:state"; roomId: string; matchId: string; match: Match; units: Array<Unit> }
+  // `turn.thinking` is null while the match is running — the acting unit's plan
+  // is inside the secrecy boundary and is only revealed once the match is
+  // `finished`. See `withoutThinking` in services/matches.ts.
   | { type: "match:turn"; roomId: string; matchId: string; turn: Turn }
   | {
       type: "match:finished";

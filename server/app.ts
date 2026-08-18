@@ -19,6 +19,7 @@
 import { Elysia } from "elysia";
 import { staticPlugin } from "@elysiajs/static";
 import { resolve } from "node:path";
+import { existsSync } from "node:fs";
 import { assertAuthConfigured } from "./auth";
 import { registerDevTools } from "./devtools";
 import { runMigrations } from "./db/migrate";
@@ -33,6 +34,10 @@ import { wsRoutes } from "./routes/ws";
 
 const PORT = Number(process.env.PORT ?? 4321);
 const DIST = process.env.DIST ?? "dist";
+
+// Whether `vite build` has run. Checked once at module load: everything static
+// hangs off it, and a fresh clone legitimately has no build.
+const hasBuild = existsSync(`${DIST}/assets`);
 
 /**
  * Map thrown service errors onto 4xx with the message intact.
@@ -125,13 +130,23 @@ export const app = new Elysia()
   // `/ws` by hand, because a bare `"/*"` outranks anything more specific.
   .use(wsRoutes)
   // ---- 4. hashed Vite bundle, on a SUB-prefix --------------------------
+  // Mounted only when the build output exists. `staticPlugin` walks
+  // `assets` at CONSTRUCTION (even with alwaysStatic: false), so on a fresh
+  // clone — which has no dist/, since the documented first run is install ->
+  // setup-assets -> db:migrate -> dev, with no build step — importing this
+  // module threw ENOENT. That took the dev server down on arrival, and took
+  // `server/ws.test.ts` with it: it imports this file, so the whole suite lost
+  // its ~12 socket tests, the ones asserting team chat never crosses teams.
+  // Silently, and while still reporting a pass.
   .use(
-    await staticPlugin({
-      assets: `${DIST}/assets`,
-      prefix: "/assets",
-      alwaysStatic: false,
-      maxAge: 31536000,
-    }),
+    hasBuild
+      ? await staticPlugin({
+          assets: `${DIST}/assets`,
+          prefix: "/assets",
+          alwaysStatic: false,
+          maxAge: 31536000,
+        })
+      : new Elysia({ name: "tacticslm/no-static" }),
   )
   // ---- 5. static-or-SPA fallback, registered LAST ----------------------
   .get("/*", async ({ path, status, set }) => {
@@ -144,6 +159,14 @@ export const app = new Elysia()
     if (resolved.startsWith(`${root}/`)) {
       const file = Bun.file(resolved);
       if (await file.exists()) return file;
+    }
+    // No build: say so instead of streaming a nonexistent index.html, which
+    // surfaces as an empty page with no hint about why.
+    if (!hasBuild) {
+      return status(404, {
+        error: "no_build",
+        detail: "dist/ is absent — run `bun run build`, or use the Vite dev server on :5173.",
+      });
     }
     set.headers["cache-control"] = "no-cache";
     return Bun.file(`${root}/index.html`);
@@ -162,5 +185,11 @@ if (import.meta.main) {
     console.log("ai-sdk devtools: recording to .devtools/ — view with `bun run devtools`");
   }
   app.listen(PORT);
-  console.log(`tacticslm on http://localhost:${PORT} (serving ${DIST})`);
+  console.log(
+    hasBuild
+      ? `tacticslm on http://localhost:${PORT} (serving ${DIST})`
+      : // Say it out loud. Otherwise this is a server that answers /api fine and
+        // returns nothing for the app, and the reason is invisible.
+        `tacticslm on http://localhost:${PORT} (API only — no ${DIST}/, run \`bun run build\` or use the Vite dev server)`,
+  );
 }

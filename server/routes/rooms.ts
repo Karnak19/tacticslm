@@ -51,10 +51,10 @@ export const roomRoutes = new Elysia({ prefix: "/rooms" })
   .post(
     "/:id/ready",
     async ({ db, user, params, body }) => {
+      // `setReady` announces the match itself, post-commit. Do not announce it
+      // again here: a match starts once, so a second announcement is always a
+      // bug rather than a safety net.
       const matchId = roomsService.setReady(db, await user(), params.id, body.ready);
-      // The broadcast hook lives in the service, but it must fire after commit,
-      // and `setReady` already returns post-commit. Stage 5 owns the socket.
-      if (matchId) roomsService.notifyMatchStarted(params.id, matchId);
       return { matchId };
     },
     { params: t.Object({ id: t.String() }), body: t.Object({ ready: t.Boolean() }) },

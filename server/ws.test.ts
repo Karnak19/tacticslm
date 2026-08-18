@@ -27,7 +27,7 @@ import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { users } from "../shared/schema";
 import { freshDb, testAuth, type Harness, type TestAuth } from "./services/testing";
-import { currentUnit, seedMatch, type SeededMatch } from "./services/testing";
+import { currentUnit, getMatch, seedMatch, type SeededMatch } from "./services/testing";
 import { applyTurn, forfeit } from "./services/matches";
 import { publishRoom, startRecording, stopRecording } from "./services/broadcast";
 
@@ -206,7 +206,9 @@ describe("upgrade and identity", () => {
   });
 
   test("a garbage token is refused at the upgrade and no socket is ever opened", async () => {
-    const attempt = await refuse(`ws://localhost:${port}/ws?roomId=${seeded.roomId}&token=not.a.jwt`);
+    const attempt = await refuse(
+      `ws://localhost:${port}/ws?roomId=${seeded.roomId}&token=not.a.jwt`,
+    );
     expect(attempt.opened).toBe(false);
     expect(attempt.raw).toEqual([]);
     // And specifically: never an authenticated frame.
@@ -217,7 +219,9 @@ describe("upgrade and identity", () => {
   // uses `currentUser`, not `requireUser`, so it cannot create the row.
   test("a validly-signed token for an unknown user is still refused", async () => {
     const token = await mint("clerk_nobody");
-    const attempt = await refuse(`ws://localhost:${port}/ws?roomId=${seeded.roomId}&token=${token}`);
+    const attempt = await refuse(
+      `ws://localhost:${port}/ws?roomId=${seeded.roomId}&token=${token}`,
+    );
     expect(attempt.opened).toBe(false);
     expect(attempt.raw).toEqual([]);
   });
@@ -313,11 +317,7 @@ describe("ordering and commit discipline", () => {
 
     // Wrong unit: `applyTurnLocked` throws before any write, the transaction
     // rolls back, and the broadcast below it must never run.
-    const wrong = h.db
-      .select()
-      .from(users)
-      .where(eq(users._id, seeded.userA))
-      .get();
+    const wrong = h.db.select().from(users).where(eq(users._id, seeded.userA)).get();
     expect(wrong).toBeTruthy();
     await expect(
       applyTurn(h.db, {
@@ -368,7 +368,10 @@ describe("reconnect re-seeds", () => {
     const missed = await fetch(`${base()}/api/matches/by-room/${seeded.roomId}`, {
       headers: { authorization: `Bearer ${token}` },
     });
-    const snapshot = (await missed.json()) as { match: { turnNumber: number }; units: Array<unknown> };
+    const snapshot = (await missed.json()) as {
+      match: { turnNumber: number };
+      units: Array<unknown>;
+    };
 
     const again = await connect(token, seeded.roomId);
     expect(again.frames[0].type).toBe("hello");
@@ -386,11 +389,6 @@ describe("reconnect re-seeds", () => {
 });
 
 function currentTurnNumber(): number {
-  const unit = currentUnit(h.db, seeded.matchId);
-  expect(unit).toBeTruthy();
-  const state = h.db;
-  void state;
-  const { getMatch } = require("./services/testing") as typeof import("./services/testing");
   return getMatch(h.db, seeded.matchId).turnNumber;
 }
 

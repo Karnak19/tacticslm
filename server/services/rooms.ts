@@ -44,22 +44,14 @@ function playerForUser(db: DbLike, roomId: string, userId: string): Player {
  * observed committed state — so the call site is deliberately placed after the
  * commit and this function trusts that.
  *
- * WHY IT IS IDEMPOTENT: there are two call sites. `setReady` calls it (that is
- * the correct one, immediately post-commit), and `server/routes/rooms.ts` calls
- * it again on the returned `matchId`. Rather than reach into the route layer to
- * delete a line, the second call is absorbed here: a match starts once, so
- * announcing it twice is always the bug, never the intent. The ledger is
- * trimmed so a long-lived process does not accumulate one entry per match
- * forever.
+ * NOT IDEMPOTENT, and it does not need to be. Each caller is a single call site:
+ * `setReady` after its commit, and the dev seed route after its own. This used to
+ * carry a Set of announced match ids, but that existed purely to absorb a
+ * duplicate call the rooms route was making on the same matchId — deleting the
+ * duplicate removed the reason for the ledger. A room cannot start a second match
+ * (its status flips to `active`), so there is nothing left to deduplicate.
  */
-const announced = new Set<string>();
-const ANNOUNCED_LIMIT = 1000;
-
 export function notifyMatchStarted(roomId: string, matchId: string, db: DbLike = getDb()): void {
-  if (announced.has(matchId)) return;
-  if (announced.size >= ANNOUNCED_LIMIT) announced.clear();
-  announced.add(matchId);
-
   const match = db.select().from(matches).where(eq(matches._id, matchId)).get();
   if (!match) return;
   publishRoom(roomId, {

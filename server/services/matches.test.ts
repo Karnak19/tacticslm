@@ -366,6 +366,32 @@ describe("teamMessages / replay secrecy", () => {
     expect(finished.match.status).toBe("finished");
     expect(finished.messages.map((m) => m.text).sort()).toEqual(["team a plan", "team b plan"]);
   });
+
+  test("replay withholds each unit's reasoning until the match is finished", async () => {
+    // `thinking` is the acting unit's plan, so it sits inside the same boundary as
+    // team chat. Gating only the client's render would leave it readable here and
+    // in the match:turn frame.
+    const unit = currentUnit(h.db, seeded.matchId)!;
+    await applyTurn(h.db, {
+      matchId: seeded.matchId,
+      unitId: unit._id,
+      action: { kind: "wait" },
+      thinking: "flank left, then focus their sniper",
+    });
+
+    const running = replay(h.db, seeded.matchId)!;
+    expect(running.match.status).toBe("running");
+    expect(running.turns.length).toBeGreaterThan(0);
+    expect(running.turns.every((t) => t.thinking === null)).toBe(true);
+
+    const alice = getUser(h.db, seeded.userA);
+    await forfeit(h.db, alice, seeded.matchId);
+
+    const finished = replay(h.db, seeded.matchId)!;
+    expect(finished.turns.some((t) => t.thinking === "flank left, then focus their sniper")).toBe(
+      true,
+    );
+  });
 });
 
 describe("forfeit", () => {
