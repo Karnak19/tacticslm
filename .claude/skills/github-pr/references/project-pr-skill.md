@@ -39,10 +39,6 @@ Defaults live in the global skill; list here what differs (a full table like fit
 | screenshots heading | — | heading for shots in the PR body (fitcrew: `## Écrans`) |
 | build gate | the project's AGENTS.md | the build + self-check commands; the bar is a green build |
 
-## Example
-
-fitcrew's — the reference project copy — is its own file: [`fitcrew.md`](fitcrew.md).
-
 ## Checklist
 
 - Folder named `pr`, `name: pr` in frontmatter.

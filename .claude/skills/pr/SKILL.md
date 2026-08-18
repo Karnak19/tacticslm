@@ -24,13 +24,12 @@ Read `.claude/skills/github-pr/SKILL.md` and run its procedure with these values
 Run before pushing:
 
 ```sh
-bunx tsc -b      # typecheck
 bunx oxlint .    # lint
 bun test         # includes the engine self-checks
-bun run build    # tsc -b && vite build — the real bar
+bun run build    # tsc -b && vite build — the acceptance bar
 ```
 
-`bun run build` is the acceptance bar: `tsc` and lint can both pass while `vite build` fails. CI runs the same three (build owns the typecheck) in about 20 seconds.
+Exactly what CI runs, in the same order, in about 20 seconds. `bun run build` owns the typecheck and goes last: lint and `tsc` can both pass while `vite build` fails.
 
 ## Screenshots
 
